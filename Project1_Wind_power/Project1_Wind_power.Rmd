@@ -40,11 +40,24 @@ pairplot
 ggsave("Plots/pairplot_wind.png", pairplot)
 ```
 
+qq-plots herunder
+
+```{r}
+qqnorm(wind_data[pow.obs], ylim, main = "Normal Q-Q Plot",
+       xlab = "Theoretical Quantiles", ylab = "Sample Quantiles",
+       plot.it = TRUE, datax = FALSE, …)
+qqline(wind_data[1])
+```
+
 # Data transformations
 
 ## Box-Cox
 ```{r}
-#Box-cox
+bc.trans <- function(lambda,y){
+    y.l <- (y^lambda-1)/lambda
+    if(lambda==0){y.l <- log(y)}
+    return(y.l)
+}
 ```
 
 
