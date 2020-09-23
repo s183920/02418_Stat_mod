@@ -44,6 +44,9 @@ cat("something")
 ```
 
 
+```{r}
+summary(wind_data)
+```
 
 
 
