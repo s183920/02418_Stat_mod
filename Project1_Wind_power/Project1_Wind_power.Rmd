@@ -41,6 +41,9 @@ ggsave("Plots/pairplot_wind.png", pairplot)
 
 
 
+```{r}
+summary(wind_data)
+```
 
 
 
