@@ -51,14 +51,96 @@ $$L(\theta) = \left(\begin{array}[cc]2n\\ k\end{array}\right)\theta^k(1-\theta)^
 
 
 ```{r}
-
+data <- as.numeric(log_data[3,2:3])
 binomial <- function(data, theta){
     k <- data[1]
     n <- data[2]
-    choose(n,k) * theta *(1-theta)^(n-k)
+    choose(n,k) * theta^k *(1-theta)^(n-k)
 }
 
-theta <- seq(0,1,0.1)
-#plot(theta, binomial(data, theta
+theta <- seq(0,1,0.001)
+MLE <- data[1]/data[2]
+c <- exp(-1/2*qchisq(1-0.05,1))
+
+plot(theta, binomial(data, theta)/max(binomial(data, theta)), "l")
+abline(c,0)
+a <- theta[binomial(data,theta)/max(binomial(data,theta)) > c]
+CI <- c(min(a), max(a))
+cat("Maximum Likelihood estimate: ", MLE, "\n")
+cat("Likelihood Confidence intervals: ", CI)
+
+```
+## Fit the binomial seperately - Test for difference.
+
+```{r}
+AZT_yes <- as.numeric(log_data[1,2:3])
+AZT_no <- as.numeric(log_data[2,2:3])
+
+theta <- seq(0,1,0.00001)
+par(mfrow=c(1,2))
+alpha <- 0.05
+c <- exp(-1/2*qchisq(1-alpha,1))
+plot(theta, binomial(AZT_yes, theta)/max(binomial(AZT_yes, theta)), "l")
+abline(c, 0)
+plot(theta, binomial(AZT_no, theta)/max(binomial(AZT_no, theta)), "l")
+abline(c, 0)
+
+MLE_yes <- optimize(binomial, c(0,1), data = AZT_yes, maximum = TRUE)$maximum
+MLE_no <-  optimize(binomial, c(0,1), data = AZT_no, maximum = TRUE)$maximum
+
+a_yes <- theta[binomial(AZT_yes,theta)/max(binomial(AZT_yes,theta)) > c]
+CI_yes <- c(min(a_yes), max(a_yes))
+
+a_no <- theta[binomial(AZT_no,theta)/max(binomial(AZT_no,theta)) > c]
+CI_no <- c(min(a_no), max(a_no))
+
+CI_yes
+CI_no
+```
+
+
+```{r}
+logL_partial <- function(b0, b1, data, AZT = TRUE){
+    y = if (AZT) {data[1,2]} else {data[2,2]} %>% as.numeric()
+    n = if (AZT) {data[1,3]} else {data[2,3]} %>% as.numeric()
+    false = n-y
+    
+    y*((b0 + b1 * AZT) * 1 - log(1+exp(b0+b1*AZT))) + false*((b0 + b1 * AZT) * 0 - log(1+exp(b0+b1*AZT)))
+}
+
+logL <- function(theta, data){
+     - (logL_partial(theta[1], theta[2],data, F) + logL_partial(theta[1],theta[2],data, T))
+}
+
+
+opt <- nlminb(c(0, 0), logL, lower = c(-Inf,-Inf), data = log_data)
+
+p0 <- exp(opt$par[1])/(1+exp(opt$par[1]))
+p1 <- exp(opt$par[1] + opt$par[2])/(1+exp(opt$par[1] + opt$par[2]))
+
+
+
+
+
+logL_b1 <- function(theta, b1, data){
+      -(logL_partial(theta[1], b1,data, F) + logL_partial(theta[1],b1,data, T))
+}
+profile_b1 <- function(b1, data){
+  opt <- nlminb(c(0), logL_b1, lower = c(-Inf), data = log_data, b1 = b1)
+  # optimize(logL)
+  b0 <- opt$par
+  -logL_b1(c(b0),b1,data)
+}
+
+
+b1 <- seq(-5,5,0.0001)
+alpha <- 0.05
+c <- exp(-1/2*qchisq(1-alpha,1))
+plot(b1, exp(profile_b1(b1,log_data)) /exp(max(profile_b1(b1,log_data))), 'l')
+abline(c, 0)
+
+a_yes <- b1[exp(profile_b1(b1,log_data)) /exp(max(profile_b1(b1,log_data))) > c]
+CI_yes <- c(min(a_yes), max(a_yes))
+CI_yes
 ```
 
