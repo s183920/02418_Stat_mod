@@ -28,7 +28,7 @@ log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t") %>%
   mutate(AIDS_yes = as.numeric(AIDS_yes), n = as.numeric(n))
 summary(act_data)
 summary(log_data)
-
+log_data
 ```
 
 ## Plot
@@ -40,7 +40,7 @@ summary(log_data)
 #ggsave("Plots/pairplot_act.png", pairplot_act)
 ```
 
-# Analysis of binomial data
+## Analysis of binomial data
 We summarise the data into one group - total number of AIDS cases and total number of patients.
 Afterwards we fit the binomial distribution to the full (total) dataset. The binomial distribution has the density:
 $$p_{\theta}(k) = \left(\begin{array}[cc]2n\\ k\end{array}\right)\theta^k(1-\theta)^{n-k}$$
@@ -48,7 +48,10 @@ With $n$ being the total number of patients and $k$ the total number of patients
 Hence we get the likelihood:
 $$L(\theta) = \left(\begin{array}[cc]2n\\ k\end{array}\right)\theta^k(1-\theta)^{n-k}$$
 
-
+MLE for $\theta$ is estimated numerically, buut: $MLE = \frac{k}{n}$
+Confidence intervals are estimated using the likelihood interval method
+$$CI: \left\{\theta, \frac{L(\theta)}{L(\hat{\theta)}> c \right\}$$
+with $c = exp(-\frac{1}{2} \chi_{1,(1-\alpha)}^2) $ - with $\chi_1^2$ being $\chi^2$ distribution with 1 degree of freedom.
 
 ```{r}
 data <- as.numeric(log_data[3,2:3])
@@ -71,6 +74,8 @@ cat("Likelihood Confidence intervals: ", CI)
 
 ```
 ## Fit the binomial seperately - Test for difference.
+Data is divided into 2 groups: a control group (without AZT) and a test group (with AZT).
+A binomial distribution is fitted to each - as in previous question.
 
 ```{r}
 AZT_yes <- as.numeric(log_data[1,2:3])
@@ -97,7 +102,11 @@ CI_no <- c(min(a_no), max(a_no))
 CI_yes
 CI_no
 ```
+We notice a slight overlap in the 95 \% confidence intervals, indicating no difference (on a 5 \& significance level) in the succes probabilities ('succes' = you have AIDS).
 
+## Estimate the parameters in the model (logistic model) with parameters $\beta_0$ and $\beta_1$
+With a logistic model we get the succes probability for the control group $p_0$ and for the test group $p_1$:
+$$p_{0}=\frac{e^{\beta_{0}}}{1+e^{\beta_{0}}}, \quad p_{1}=\frac{e^{\beta_{0}+\beta_{1}}}{1+e^{\beta_{0}+\beta_{1}}}$$
 
 ```{r}
 logL_partial <- function(b0, b1, data, AZT = TRUE){
