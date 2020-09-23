@@ -26,6 +26,7 @@ library(GGally)
 ## Load
 ```{r}
 wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
+summary(wind_data)
 ```
 
 ## Plot
@@ -33,7 +34,8 @@ wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
 
 ```{r}
 # ggpairs(~pow.obs + ws30 + wd30, wind_data)
-ggpairs(wind_data, columns = c("pow.obs", "ws30", "wd30"))
+pairplot  <- ggpairs(wind_data, columns = c("pow.obs", "ws30", "wd30", "r.day"))
+ggsave("Plots/pairplot_wind.png", pairplot)
 ```
 
 
