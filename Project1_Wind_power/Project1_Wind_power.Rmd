@@ -40,14 +40,59 @@ pairplot
 ggsave("Plots/pairplot_wind.png", pairplot)
 ```
 
+qq-plots herunder
+
 ```{r}
-cat("something")
+qqnorm(wind_data[pow.obs], ylim, main = "Normal Q-Q Plot",
+       xlab = "Theoretical Quantiles", ylab = "Sample Quantiles",
+       plot.it = TRUE, datax = FALSE, …)
+qqline(wind_data[1])
+```
+
+# Data transformations
+
+## Box-Cox
+```{r}
+bc.trans <- function(lambda,y){
+    y.l <- (y^lambda-1)/lambda
+    if(lambda==0){y.l <- log(y)}
+    return(y.l)
+}
 ```
 
 
+## Log-transformation
 ```{r}
-runif(1, 1, 2)
+#Log
 ```
+
+
+
+# Models
+
+
+## Normal distribution
+```{r}
+
+```
+
+## Multimodal distribution
+```{r}
+
+```
+
+
+## Von Mises distribution
+```{r}
+
+```
+
+
+## Gamma distribution 
+```{r}
+
+```
+
 
 
 

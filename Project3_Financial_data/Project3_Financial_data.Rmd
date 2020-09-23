@@ -29,3 +29,84 @@ finance_data <- read.csv("../Data/finance_data.csv", header = T, sep = ";") %>%
 summary(finance_data)
 
 ```
+
+#Part 1
+
+We wish to visualise the data and estimate the parameters of a normal model aswell as adress if the normal model is appropriate. We can plot the data to look at it to see a big ocean of
+```{r}
+## Look at data
+plot(finance_data$time,finance_data$SLV)
+
+qqnorm(finance_data$SLV)
+qqline(finance_data$SLV)
+
+## design matrix, and obs
+X <- cbind(1,finance_data$time)
+y <- finance_data$SLV
+n <- length(y)
+#X
+#y
+
+glm(y~X, data = finance_data)
+
+#muhat <- mean(y)
+#sigma.hat2 <- sum((y-muhat)^2)/n
+
+#MLE
+muhat = mean(y)
+sigma.hat2 <- 1/n*sum((y-mean(y))^2)
+#muhat
+#sigma.hat2
+#var(y)
+s2 <- var(y) * (n - 1)/n 
+#s2
+normal.ll <- sum(dnorm(y, mean = mean(y),
+                       sd = sqrt(s2), log = TRUE))
+cat("\nMLE\n")
+cat("Muhat:",mean(y),"\n")
+cat("Sigmahat2:",sigma.hat2,"\n")
+
+cat("\nConfidence interval with 95% confidence:",c(muhat + 1.96*sqrt(s2)/sqrt(n),muhat - 1.96*sqrt(s2)/sqrt(n)),"\n")
+
+cat("\nNormal log likelihood using Jan's solution:", normal.ll,"\n")
+
+
+#AIC of the normal model
+cat("AIC of Jans model:",-2 * normal.ll + 4,"\n")
+sigma2 <- sigma.hat2
+
+#The solution from the equation in the book is propably too general. The solution provided by Jan in his examples prints the same AIC when computed as using R's normal "gml" function, which makes us belive that we will have to fit the normal model using the dnorm instead of trying to write out the equation from the book. (pg. 90)
+
+logl <- function(y,n){
+  -n/2*log(sigma2)-1/(2*sigma2)*sum((y-mean(y))^2)
+}
+
+cat("Normal log likelihood using the equation in the book:",logl(y,n),"\n")
+cat("AIC of my model:",-2 * logl(y,n) + 4,"\n")
+
+
+# ## correlation between estimates
+# cov2cor(t(X)%*%X)
+# 
+# X[ ,2] <- X[ ,2] - mean(X[ ,2])
+# cov2cor(t(X)%*%X)
+# 
+# ## Parameter estimaes
+# beta <- solve(t(X) %*% X) %*% t(X) %*% y
+# beta
+# 
+# ## variance parameter
+# yhat <- X %*% beta
+# sigmasq.hat <- sum((y-yhat)^2)/n
+# 
+# ## Unbiased estimate
+# 
+# sigmasq.hat
+# sigmasq.hat2
+# 
+# se.beta <- sqrt(diag(sigmasq.hat2 * solve(t(X) %*% X)))
+# se.beta
+```
+Looking at the QQ plot, we see to much noise in the ends of the data. With this many datapoints, we cannot deem this model appropriate when the tails deviate this much from the QQline. We must therefore look at another model.
+
+## Part 2. 
