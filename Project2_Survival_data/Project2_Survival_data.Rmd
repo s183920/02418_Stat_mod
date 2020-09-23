@@ -1,16 +1,20 @@
 ---
 title: 'Project2: Survival data'
-output: html_document:
-  toc: true
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    theme: united
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Packages
+<!-- # Packages -->
 
-```{r}
+```{r Packages, include=FALSE}
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -22,7 +26,7 @@ library(magrittr)
 # Data
 
 ## Load
-```{r}
+```{r Data load}
 act_data <- read.delim("../Data/actg320.txt", header = T, sep = "\t")
 log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t") %>% 
   bind_rows(data.frame(AZT = "Total", AIDS_yes = sum(.$AIDS_yes), n= sum(.$n)))
@@ -33,13 +37,13 @@ log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t") %>%
 
 ### Logistic data
 
-```{r}
+```{r Summary log}
 summary(log_data)
 ```
 
 ### ACT data
 
-```{r}
+```{r Summary ACT}
 summary(act_data)
 ```
 
@@ -49,12 +53,15 @@ summary(act_data)
 
 
 
-```{r}
+```{r Pair plots}
 #pairplot_act  <- ggpairs(act_data)
 #ggsave("Plots/pairplot_act.png", pairplot_act)
 ```
 
 # Analysis of binomial data
+
+## Binomial fit - all
+
 We summarise the data into one group - total number of AIDS cases and total number of patients.
 Afterwards we fit the binomial distribution to the full (total) dataset. The binomial distribution has the density:
 $$p_{\theta}(k) = \left(\begin{array}[cc]2n\\ k\end{array}\right)\theta^k(1-\theta)^{n-k}$$
@@ -64,7 +71,7 @@ $$L(\theta) = \left(\begin{array}[cc]2n\\ k\end{array}\right)\theta^k(1-\theta)^
 
 
 
-```{r}
+```{r Binomial fit all}
 data <- as.numeric(log_data[3,2:3])
 binomial <- function(data, theta){
     k <- data[1]
@@ -84,9 +91,10 @@ cat("Maximum Likelihood estimate: ", MLE, "\n")
 cat("Likelihood Confidence intervals: ", CI)
 
 ```
-## Fit the binomial seperately - Test for difference.
 
-```{r}
+## Binomial fit seperately
+
+```{r }
 AZT_yes <- as.numeric(log_data[1,2:3])
 AZT_no <- as.numeric(log_data[2,2:3])
 
@@ -111,6 +119,7 @@ CI_no <- c(min(a_no), max(a_no))
 CI_yes
 CI_no
 ```
+
 
 
 ```{r}
