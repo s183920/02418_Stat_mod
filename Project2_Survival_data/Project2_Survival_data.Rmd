@@ -23,15 +23,42 @@ library(magrittr)
 ## Load
 ```{r}
 act_data <- read.delim("../Data/actg320.txt", header = T, sep = "\t")
-log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t")
+log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t") %>% 
+  rbind(c("Total", sum(log_data$AIDS_yes), sum(log_data$n))) %>% 
+  mutate(AIDS_yes = as.numeric(AIDS_yes), n = as.numeric(n))
 summary(act_data)
 summary(log_data)
+
 ```
 
 ## Plot
 
 
+
 ```{r}
-pairplot_act  <- ggpairs(act_data)
-ggsave("Plots/pairplot_act.png", pairplot_act)
+#pairplot_act  <- ggpairs(act_data)
+#ggsave("Plots/pairplot_act.png", pairplot_act)
 ```
+
+# Analysis of binomial data
+We summarise the data into one group - total number of AIDS cases and total number of patients.
+Afterwards we fit the binomial distribution to the full (total) dataset. The binomial distribution has the density:
+$$p_{\theta}(k) = \left(\begin{array}[cc]2n\\ k\end{array}\right)\theta^k(1-\theta)^{n-k}$$
+With $n$ being the total number of patients and $k$ the total number of patients with aids.
+Hence we get the likelihood:
+$$L(\theta) = \left(\begin{array}[cc]2n\\ k\end{array}\right)\theta^k(1-\theta)^{n-k}$$
+
+
+
+```{r}
+
+binomial <- function(data, theta){
+    k <- data[1]
+    n <- data[2]
+    choose(n,k) * theta *(1-theta)^(n-k)
+}
+
+theta <- seq(0,1,0.1)
+#plot(theta, binomial(data, theta
+```
+
