@@ -171,7 +171,7 @@ profile_b1 <- function(b1, data){
 }
 
 
-b1 <- seq(-5,5,0.001)
+b1 <- seq(-5,5,0.01)
 alpha <- 0.05
 c <- exp(-1/2*qchisq(1-alpha,1))
 p = c()
@@ -196,3 +196,36 @@ cat("The maximum profile likelihood estimate of b1 is:  ", MLE_b1, "\n")
 cat("With confidence intervals: ", CI_b1, "\n")
 ```
 The 95% confidence interval does not include 0. The difference is significant.
+
+
+
+# Survival stuff
+
+A little bit of summary statistics .... Proportion of death/AIDS in each group...
+```{r}
+act_data <- act_data %>% 
+  select(time, event, tx)
+act_data
+
+
+```
+
+## Exponential distribution
+
+```{r}
+data <- act_data$time
+
+likelihood_gamma <- function(theta, data){
+    -sum(dgamma(data, shape = theta[1], rate = theta[2], log = T))
+}
+likelihood_pois <- function(theta, data)
+  -sum(dpois(data, lambda = theta[1], log = T))
+dpois
+opt <- nlminb(c(5,5), likelihood_gamma, lower = c(0,0), data = data)
+
+x <- seq(1,400, 1)
+plot(x,dgamma(x, opt$par[1], opt$par[2]), 'l')
+par(new = T)
+hist(data)
+```
+
