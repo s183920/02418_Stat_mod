@@ -31,7 +31,30 @@ summary(log_data)
 ## Plot
 
 
+
 ```{r}
 pairplot_act  <- ggpairs(act_data)
 ggsave("Plots/pairplot_act.png", pairplot_act)
 ```
+
+# Analysis of binomial data
+
+```{r}
+log_data
+
+
+```
+
+```{r}
+sum(log_data[,c(2,3)], byrow = T)
+
+binomial <- function(data, theta){
+    k <- data[1]
+    n <- data[2]
+    choose(n,k) * theta *(1-theta)^(n-k)
+}
+
+theta <- seq(0,1,0.1)
+plot(theta, binomial(data, theta))
+```
+
