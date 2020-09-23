@@ -39,14 +39,46 @@ pairplot
 ggsave("Plots/pairplot_wind.png", pairplot)
 ```
 
+# Data transformations
+
+## Box-Cox
 ```{r}
-cat("something")
+#Box-cox
 ```
 
 
+## Log-transformation
 ```{r}
-summary(wind_data)
+#Log
 ```
+
+
+
+# Models
+
+
+## Normal distribution
+```{r}
+
+```
+
+## Multimodal distribution
+```{r}
+
+```
+
+
+## Von Mises distribution
+```{r}
+
+```
+
+
+## Gamma distribution 
+```{r}
+
+```
+
 
 
 
