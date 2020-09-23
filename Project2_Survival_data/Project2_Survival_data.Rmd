@@ -23,9 +23,12 @@ library(magrittr)
 ## Load
 ```{r}
 act_data <- read.delim("../Data/actg320.txt", header = T, sep = "\t")
-log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t")
+log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t") %>% 
+  rbind(c("Total", sum(log_data$AIDS_yes), sum(log_data$n))) %>% 
+  mutate(AIDS_yes = as.numeric(AIDS_yes), n = as.numeric(n))
 summary(act_data)
 summary(log_data)
+
 ```
 
 ## Plot
@@ -41,8 +44,6 @@ ggsave("Plots/pairplot_act.png", pairplot_act)
 
 ```{r}
 log_data
-
-
 ```
 
 ```{r}
