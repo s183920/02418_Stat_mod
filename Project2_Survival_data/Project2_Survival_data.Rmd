@@ -162,6 +162,7 @@ p1 <- exp(opt$par[1] + opt$par[2])/(1+exp(opt$par[1] + opt$par[2]))
 logL_b1 <- function(theta, b1, data){
       -(logL_partial(theta[1], b1,data, F) + logL_partial(theta[1],b1,data, T))
 }
+
 profile_b1 <- function(b1, data){
   opt <- nlminb(c(0), logL_b1, lower = c(-Inf), data = log_data, b1 = b1)
   # optimize(logL)
@@ -170,17 +171,28 @@ profile_b1 <- function(b1, data){
 }
 
 
-b1 <- seq(-5,5,0.0001)
+b1 <- seq(-5,5,0.001)
 alpha <- 0.05
 c <- exp(-1/2*qchisq(1-alpha,1))
-plot(b1, exp(profile_b1(b1,log_data)) /exp(max(profile_b1(b1,log_data))), 'l')
+p = c()
+for (i in 1:length(b1)){
+  p[i] = exp(profile_b1(b1[i], log_data))
+}
+
+MLE_b1 <- optimize(profile_b1, c(-5,5), data = log_data, maximum = T)$maximum
+
+plot(b1, p/max(p), 'l')
 abline(c, 0)
+abline(v = MLE_b1)
 
-a_yes <- b1[exp(profile_b1(b1,log_data)) /exp(max(profile_b1(b1,log_data))) > c]
-CI_yes <- c(min(a_yes), max(a_yes))
-CI_yes
 
-cat("The maximum likelihood estimates of p0 and p1 are: p0 = ", p0, " p1 = ", p1)
-cat("The maximum profile likelihood estimate of b1 is:  ", )
+
+a_b1 <- b1[p/max(p) > c]
+CI_b1 <- c(min(a_b1), max(a_b1))
+
+
+cat("The maximum likelihood estimates of p0 and p1 are: p0 = ", p0, " p1 = ", p1, "\n")
+cat("The maximum profile likelihood estimate of b1 is:  ", MLE_b1, "\n")
+cat("With confidence intervals: ", CI_b1, "\n")
 ```
-
+The 95% confidence interval does not include 0. The difference is significant.
