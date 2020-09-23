@@ -1,6 +1,7 @@
 ---
 title: 'Project2: Survival data'
-output: html_document:
+output:
+  html_document:
   toc: true
 ---
 
@@ -121,7 +122,12 @@ We notice a slight overlap in the 95 \% confidence intervals, indicating no diff
 ## Estimate the parameters in the model (logistic model) with parameters $\beta_0$ and $\beta_1$
 With a logistic model we get the succes probability for the control group $p_0$ and for the test group $p_1$:
 $$p_{0}=\frac{e^{\beta_{0}}}{1+e^{\beta_{0}}}, \quad p_{1}=\frac{e^{\beta_{0}+\beta_{1}}}{1+e^{\beta_{0}+\beta_{1}}}$$
-
+The parameter $b_1$ is the parameter describing the difference in succes probabilities ie. if $\beta_1 = 0$ no difference.
+We can write the likelihood function for the logsitic distribution:
+$$L(\beta_0, \beta_1) = \Pi_i p_i^{y_i}(1-p_i)^{1-y_i}$$
+with $y_i$ denoting succes in category i. $i=0$ control group, $i=1$ test group.
+The log likelihood for this is
+$$logL(\beta_0, \beta_1) = \sum_i \left[(\beta_0 + \beta_1 \cdot group_i)y_i - log(1 + exp(\beta_0 + \beta_1 \cdot group_i)) \right]$$
 ```{r}
 logL_partial <- function(b0, b1, data, AZT = TRUE){
     y = if (AZT) {data[1,2]} else {data[2,2]} %>% as.numeric()
@@ -165,5 +171,8 @@ abline(c, 0)
 a_yes <- b1[exp(profile_b1(b1,log_data)) /exp(max(profile_b1(b1,log_data))) > c]
 CI_yes <- c(min(a_yes), max(a_yes))
 CI_yes
+
+cat("The maximum likelihood estimates of p0 and p1 are: p0 = ", p0, " p1 = ", p1)
+cat("The maximum profile likelihood estimate of b1 is:  ", )
 ```
 
