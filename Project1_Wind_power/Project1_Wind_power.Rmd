@@ -33,7 +33,7 @@ form .
 
 ## Load
 ```{r}
-wind_data <- read.table("tuno.txt", header = T, sep = " ")
+wind_data <- read.table("../Data/tuno.txt", header = T, sep = " ")
 summary(wind_data)
 ```
 
