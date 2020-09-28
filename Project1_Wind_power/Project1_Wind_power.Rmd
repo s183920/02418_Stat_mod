@@ -28,7 +28,6 @@ library(magrittr)
 ```{r}
 wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
 summary(wind_data)
-222
 ```
 
 ## Plot
