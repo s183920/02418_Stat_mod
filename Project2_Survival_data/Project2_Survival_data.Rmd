@@ -214,7 +214,6 @@ act_data
 
 ```{r}
 data <- act_data$time
-
 likelihood_gamma <- function(theta, data){
     -sum(dgamma(data, shape = theta[1], rate = theta[2], log = T))
 }
