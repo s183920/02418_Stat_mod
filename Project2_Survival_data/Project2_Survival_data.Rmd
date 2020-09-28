@@ -1,11 +1,15 @@
 ---
 title: 'Project2: Survival data'
-output: 
+output:
   html_document:
-    toc: true
-    toc_float: true
-    toc_collapsed: true
     theme: united
+    toc: yes
+    toc_collapsed: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -64,14 +68,14 @@ summary(act_data)
 
 We summarise the data into one group - total number of AIDS cases and total number of patients.
 Afterwards we fit the binomial distribution to the full (total) dataset. The binomial distribution has the density:
-$$p_{\theta}(k) = \left(\begin{array}[cc]2n\\ k\end{array}\right)\theta^k(1-\theta)^{n-k}$$
+$$p_{\theta}(k) = \left(\begin{array}{c} n\\ k\end{array}\right)\theta^k(1-\theta)^{n-k}$$
 With $n$ being the total number of patients and $k$ the total number of patients with aids.
 Hence we get the likelihood:
-$$L(\theta) = \left(\begin{array}[cc]2n\\ k\end{array}\right)\theta^k(1-\theta)^{n-k}$$
+$$L(\theta) = \left(\begin{array}{c} n\\ k\end{array}\right)\theta^k(1-\theta)^{n-k}$$
 
 MLE for $\theta$ is estimated numerically, buut: $MLE = \frac{k}{n}$
 Confidence intervals are estimated using the likelihood interval method
-$$CI: \left\{\theta, \frac{L(\theta)}{L(\hat{\theta)}> c \right\}$$
+$$CI: \left[ \theta, \frac{L(\theta)}{L(\hat{\theta})} > c \right]$$
 with $c = exp(-\frac{1}{2} \chi_{1,(1-\alpha)}^2) $ - with $\chi_1^2$ being $\chi^2$ distribution with 1 degree of freedom.
 
 ```{r Binomial fit all}
@@ -205,7 +209,7 @@ A little bit of summary statistics .... Proportion of death/AIDS in each group..
 ```{r}
 act_data <- act_data %>% 
   select(time, event, tx)
-act_data
+
 
 
 ```

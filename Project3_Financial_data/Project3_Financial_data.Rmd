@@ -107,6 +107,114 @@ cat("AIC of my model:",-2 * logl(y,n) + 4,"\n")
 # se.beta <- sqrt(diag(sigmasq.hat2 * solve(t(X) %*% X)))
 # se.beta
 ```
+```{r}
+profile_mu_normal <- function(theta, data){
+    # The profile likelihood of the location parameter of the cauchy model.
+    # The MLE for the scale parameter is found numerically at each fixed value of the location parameter using nlminb
+    nlogL_normal_scale <- function(theta, loc, data){
+      # Defininf negative log likelihood with fixed location parameter
+        scale <- theta[1]
+        -sum(dnorm(data, loc, scale, log = T))
+        }
+  scale = nlminb(c(0), nlogL_normal_scale, lower = c(0.001), data = data, loc = theta[1])$par
+  
+  # print(scale)
+  sum(dnorm(data, theta, scale, log = T))
+}
+opt_norm <- optimize(profile_mu_normal, c(-5,5), data = y, maximum = T)
+loc <- seq(-0.05,0.05, 0.0001)
+p_norm_profile <- c()
+
+for (i in 1:length(loc)){
+  
+  p_norm_profile[i] = profile_mu_normal(loc[i], y)
+}
+normalised_LL <-  p_norm_profile-opt_norm$objective
+plot(loc,normalised_LL, 'l', main = "Normalised Log likelihodd", xlab = "Location parameter", ylab = "Log likelihodd")
+plot(loc, exp(normalised_LL), 'l',  main = "Normalised Log likelihodd", xlab = "Location parameter", ylab = "Likelihodd")
+```
+
 Looking at the QQ plot, we see to much noise in the ends of the data. With this many datapoints, we cannot deem this model appropriate when the tails deviate this much from the QQline. We must therefore look at another model.
 
 ## Part 2. 
+
+See section 4.11 "Location-scale family"
+We consider the Cauchy model since it "is useful as a model for data with heavy tails, characterized by the presence of outliers".
+The model is complex, which calls for numerical optimisation methods.
+```{r}
+logL_cauchy <- function(theta, data){
+  # The negative log Likelihood function for the cauchy model
+  # Cauchy is a multiparameter model in the location scale family, with 2 parameters:
+  # location (loc)
+  # scale (scale)
+  # It is useful for modelling distributions with heavy tails
+
+  loc <- theta[1]
+  scale <- theta[2]
+  -sum(dcauchy(data, loc, scale, log = T))
+}
+
+# Using the numerical nlminb optimizer to minimise the negative log likelihood function
+opt <- nlminb(c(0,0.00001), logL_cauchy, lower = c(-Inf, 0.0000001), data = y)
+
+
+profile_mu_cauchy <- function(theta, data){
+    # The profile likelihood of the location parameter of the cauchy model.
+    # The MLE for the scale parameter is found numerically at each fixed value of the location parameter using nlminb
+    nlogL_cauchy_scale <- function(theta, loc, data){
+      # Defininf negative log likelihood with fixed location parameter
+        scale <- theta[1]
+        -sum(dcauchy(data, loc, scale, log = T))
+        }
+  scale = nlminb(c(0.00001), nlogL_cauchy_scale, lower = c(0.0000001), data = data, loc = theta[1])$par
+
+  sum(dcauchy(data, theta[1], scale, log = T))
+}
+
+# Plotting the profile log likelihood of the location parameter
+opt_profile_cauchy <- optimize(profile_mu_cauchy, interval = c(-10,10), data = y, maximum = T)
+loc <- seq(-0.05,0.05, 0.0001)
+p_caucy <- c()
+
+for (i in 1:length(loc)){
+  
+  p[i] = profile_mu_cauchy(loc[i], y)
+}
+normalised_LL_C <- p-opt_profile_cauchy$objective 
+plot(loc,normalised_LL_C , 'l', main = "Normalised Log likelihodd", xlab = "Location parameter", ylab = "Log likelihodd")
+plot(loc, exp(normalised_LL_C), 'l', main = "Normalised likelihood",xlab = "Location parameter", ylab = "Likelihodd")
+
+# Optimal MLE of location parameter with profile likelihood
+
+```
+
+### Comparing Cauchy and Normal
+
+```{r}
+plot(loc, exp(normalised_LL), 'l')
+lines(loc, exp(normalised_LL_C), lty = 3, col ="red")
+alpha <- 0.05
+c <- exp(-1/2*qchisq(1-alpha, df = 1))
+abline( h = c)
+p = 2
+AIC_normal = -2 * normal.ll + 4
+AIC_cauchy = 2 *opt$objective + 4
+
+cat("AIC of the normal model: ", AIC_normal,"  AIC of the Cauchy model: ", AIC_cauchy)
+```
+AIC is lowest for the normal model - indicating the normal to be a better fit. 
+We try the t distribution with density:
+$$p(x \mid \nu, \hat{\mu}, \hat{\sigma})=\frac{\Gamma\left(\frac{\nu+1}{2}\right)}{\Gamma\left(\frac{\nu}{2}\right) \sqrt{\pi \nu} \hat{\sigma}}\left(1+\frac{1}{\nu}\left(\frac{x-\hat{\mu}}{\hat{\sigma}}\right)^{2}\right)^{-\frac{\nu+1}{2}}$$
+```{r}
+t_dist <- function(theta, data){
+    df <- theta[1]
+    mu <- theta[2]
+    s  <- theta[3]
+    -sum(log(gamma((df+1)/2)/(gamma(df/2) * sqrt(pi * df)*s) * (1 + 1/df*(((data-mu)/s)^2))^(-(df+1)/2)))
+}
+opt <- nlminb(c(0.1,0,0), t_dist, lower = c(0.01, -Inf,0.00001), data = y)
+
+t_dist(c(opt$par[1],opt$par[2],opt$par[3]), y)
+```
+
+
