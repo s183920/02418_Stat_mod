@@ -23,6 +23,8 @@ library(magrittr)
 
 
 # Data
+The original data is organized in six variables - the first three of them describing the date, the fourth describing the average 
+daily wind power production, the fifth and sixth describing the wind speed in m/s and wind direction in radians respectively. 
 
 ## Load
 ```{r}
