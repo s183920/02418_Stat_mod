@@ -23,12 +23,18 @@ library(magrittr)
 
 
 # Data
+The original data is organized in six variables - the first three of them describing the date, the fourth describing the average 
+daily wind power production, the fifth and sixth describing the wind speed in m/s and wind direction in radians respectively. 
+
+Before working with this dataset the three variables concerning the date were merged into one variable containing all three and being in the 
+form .
+/Dokumenter/Dokumenter/Git_Projects/02418_Stat_mod/Data
+
 
 ## Load
 ```{r}
-wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
+wind_data <- read.table("../Data/tuno.txt", header = T, sep = " ")
 summary(wind_data)
-222
 ```
 
 ## Plot
