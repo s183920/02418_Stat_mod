@@ -1,15 +1,15 @@
 ---
 title: 'Project2: Survival data'
 output:
-  word_document:
-    toc: yes
-  pdf_document:
-    toc: yes
   html_document:
     theme: united
     toc: yes
     toc_collapsed: yes
     toc_float: yes
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -210,11 +210,16 @@ A little bit of summary statistics .... Proportion of death/AIDS in each group..
 act_data <- act_data %>% 
   select(time, event, tx)
 
-
+act_data$event
 
 ```
 
 ## Exponential distribution
+The variable 'event' describes wheter or not the patient has gotten AIDS (1) or not (0). However, some patients left the study, or the study was terminated before the patients had developed AIDS. Hence for the healthy patients event = 0 the time of event is longer than the time reported.
+Therefore, we have to work with 2 likelihood functions: $L_{event = 1}(\theta)$ and $L_{event = 0}(\theta)$.
+$L_{event = 1}(\theta)$ is the usual likelihood function: $L_{event = 1} = \Pi_i f_{\theta} (x_i)$.
+In the latter case we have to use the survival function $g(x) = 1 - F(x) = 1 - P(X\leq x_i)$ instead of the density. $L_{event = 0}(\theta) = \Pi_i g_{\theta}(x_i) = \Pi_i ( 1 - P(X<x_i))$.
+The full likelihood is hence $L(\theta) = L_{event = 0}(\theta) L_{event = 1}(\theta)$
 
 ```{r}
 data <- act_data$time

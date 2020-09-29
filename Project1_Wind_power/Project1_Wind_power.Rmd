@@ -26,9 +26,20 @@ library(magrittr)
 The original data is organized in six variables - the first three of them describing the date, the fourth describing the average 
 daily wind power production, the fifth and sixth describing the wind speed in m/s and wind direction in radians respectively. 
 
-Before working with this dataset the three variables concerning the date were merged into one variable containing all three and being in the 
-form .
-/Dokumenter/Dokumenter/Git_Projects/02418_Stat_mod/Data
+Before working with this dataset the three variables concerning the date were merged into one variable containing all three. 
+Firstly, a graphical presentation of data were created and can be seen as (...) below. It is clearly seen tat none of the variables of the data 
+is normally distributed. The *wind speed* looks rather rightly skewed, and the *wind direction* looks left skrewed or could possibly be a 
+bimodal distribution. 
+
+
+*** present some summary statistics.
+
+Before we move on to the modelling of the data, data transformations will be performed. 
+
+(Before you start the model-ling it will make some of the questions simpler if
+you normalize (to numbers strictly between 0 and 1) the power production.
+Be careful to do this in a meaningful way (hint: relate to installed capacity)
+and describe precisely how it is done.)
 
 
 ## Load
@@ -54,6 +65,8 @@ qqnorm(wind_data[pow.obs], ylim, main = "Normal Q-Q Plot",
        plot.it = TRUE, datax = FALSE, …)
 qqline(wind_data[1])
 ```
+
+
 
 # Data transformations
 
