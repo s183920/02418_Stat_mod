@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Packages
 
-```{r}
+```{r Packages, include = FALSE}
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -131,7 +131,7 @@ for (i in 1:length(loc)){
 }
 normalised_LL <-  p_norm_profile-opt_norm$objective
 plot(loc,normalised_LL, 'l', main = "Normalised Log likelihodd", xlab = "Location parameter", ylab = "Log likelihodd")
-plot(loc, exp(normalised_LL), 'l',  main = "Normalised Log likelihodd", xlab = "Location parameter", ylab = "Likelihodd")
+plot(loc, exp(normalised_LL), 'l',  main = "Normalised likelihodd", xlab = "Location parameter", ylab = "Likelihodd")
 ```
 
 Looking at the QQ plot, we see to much noise in the ends of the data. With this many datapoints, we cannot deem this model appropriate when the tails deviate this much from the QQline. We must therefore look at another model.
@@ -174,13 +174,13 @@ profile_mu_cauchy <- function(theta, data){
 # Plotting the profile log likelihood of the location parameter
 opt_profile_cauchy <- optimize(profile_mu_cauchy, interval = c(-10,10), data = y, maximum = T)
 loc <- seq(-0.05,0.05, 0.0001)
-p_caucy <- c()
+p_cauchy <- c()
 
 for (i in 1:length(loc)){
   
-  p[i] = profile_mu_cauchy(loc[i], y)
+  p_cauchy[i] = profile_mu_cauchy(loc[i], y)
 }
-normalised_LL_C <- p-opt_profile_cauchy$objective 
+normalised_LL_C <- p_cauchy-opt_profile_cauchy$objective 
 plot(loc,normalised_LL_C , 'l', main = "Normalised Log likelihodd", xlab = "Location parameter", ylab = "Log likelihodd")
 plot(loc, exp(normalised_LL_C), 'l', main = "Normalised likelihood",xlab = "Location parameter", ylab = "Likelihodd")
 
@@ -206,15 +206,31 @@ AIC is lowest for the normal model - indicating the normal to be a better fit.
 We try the t distribution with density:
 $$p(x \mid \nu, \hat{\mu}, \hat{\sigma})=\frac{\Gamma\left(\frac{\nu+1}{2}\right)}{\Gamma\left(\frac{\nu}{2}\right) \sqrt{\pi \nu} \hat{\sigma}}\left(1+\frac{1}{\nu}\left(\frac{x-\hat{\mu}}{\hat{\sigma}}\right)^{2}\right)^{-\frac{\nu+1}{2}}$$
 ```{r}
-t_dist <- function(theta, data){
-    df <- theta[1]
-    mu <- theta[2]
-    s  <- theta[3]
+t_dist_Profile <- function(theta, df, data){
+    mu <- theta[1]
+    s  <- theta[2]
     -sum(log(gamma((df+1)/2)/(gamma(df/2) * sqrt(pi * df)*s) * (1 + 1/df*(((data-mu)/s)^2))^(-(df+1)/2)))
 }
-opt <- nlminb(c(0.1,0,0), t_dist, lower = c(0.01, -Inf,0.00001), data = y)
+opt <- nlminb(c(0,0.000001), t_dist_Profile, lower = c(-Inf, 0.000001), data = y, df = 4)
 
-t_dist(c(opt$par[1],opt$par[2],opt$par[3]), y)
+df <- seq(1,30,1)
+result <- c()
+for (i in 1:length(df)){
+  opt <- nlminb(c(0,0.000001), t_dist_Profile, lower = c(-Inf, 0.000001), data = y, df = i)
+  result[i] <- -opt$objective
+}
+
+maximum <- df[result == max(result)]
+plot(df, result, main = "Log likelikhood as a function of degrees of freedom", xlab = "Degrees of freedom", ylab = "Log likelihood")
+cat("The maximum of the profile likelihood of df is found at", maximum, "degrees of freedom")
+
+opt_max <- nlminb(c(0,0.000001), t_dist_Profile, lower = c(-Inf, 0.000001), data = y, df = maximum)
+cat("The parameters for the optimal model are found at", maximum, "degrees of freedom - mu = ", opt_max$par[1], "sigma = ", opt_max$par[2])
+
+AIC_T <- 2*opt_max$objective +2*3
+
+print("Comparing AIC")
+cat("Normal: ", AIC_normal, "\nCauchy: ", AIC_cauchy, "\nT: ", AIC_T)
 ```
 
 
