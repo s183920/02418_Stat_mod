@@ -232,3 +232,44 @@ par(new = T)
 hist(data)
 ```
 
+### All data
+
+```{r}
+nll <- function(theta, data){
+  l1 <- data %>% filter(event == 1) %>% pull(time) %>% dexp(rate = theta) %>% log() %>% sum()
+  l2 <- data %>% filter(event == 0) %>% pull(time) %>% 1-pexp(rate = theta) %>% log() %>% sum()
+ ' -sum(log(dexp(data[data$event == 1]$time, rate = theta))) - sum(log(pexp(data[data$event == 0]$time, rate = theta)))' 
+ -l1-l2
+}
+act_data %>% filter(event == 1) %>% pull(time) %>% dexp(rate = theta, log = T)
+theta <- seq(0, 1e-3, 1e-5)
+
+plot(theta, nll(theta, act_data))
+```
+
+
+```{r}
+d <- act_data
+## likelihood function for exponential distribution with out differenceing on treatment
+nll <- function(theta){
+  -sum(log(dexp(d[d$"event" == 1, ]$time, rate = theta))) -
+    sum(log(1-pexp(d[d$"event" == 0, ]$time, rate = theta)))
+}
+theta <- seq(0, 0.001, by = 0.00001)
+plot(theta, sapply(theta, nll), type = 'l')
+rate <- nlminb(0.001, nll, lower = 0)
+d[d$"event" == 1, ]
+opt <- optimise(nll, c(0, 0.001))
+opt$minimum
+
+## Likelihood function for two parameter model
+nll <- function(theta){
+  -sum(log(dexp(d[event == 1 & tx == 0]$time, rate = exp(-theta[1])))) -
+    sum(log(1-pexp(d[event == 0 & tx == 0]$time, rate = exp(-theta[1]))))-
+    sum(log(dexp(d[event == 1 & tx == 1]$time, rate = exp(-theta[1]-theta[2])))) -
+    sum(log(1-pexp(d[event == 0 & tx == 1]$time, rate = exp(-theta[1]-theta[2]))))
+}
+
+rate.2 <- optim(c(7, 10), nll, hessian = T)
+```
+
