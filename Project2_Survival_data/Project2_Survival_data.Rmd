@@ -209,7 +209,8 @@ The 95% confidence interval does not include 0. The difference is significant.
 
 ## Summary statistics
 
-A little bit of summary statistics .... Proportion of death/AIDS in each group...
+The table below shows the proportions of the different groups
+
 ```{r Summary statistics}
 act_data <- act_data %>% 
   select(time, event, tx)
@@ -221,7 +222,6 @@ names(attributes(summary_table)$dimnames) <- c("Event", "Treatment")
 
 cat("Summary table:\n")
 summary_table
-
 
 # summary_table %>% xtable::xtable()
 
@@ -242,17 +242,36 @@ The full likelihood is hence $L(\theta) = L_{event = 0}(\theta) L_{event = 1}(\t
 
 ```{r Exp fit - all data}
 nll <- function(theta, data){
-  l1 <- act_data %>% filter(event == 1) %>% pull(time) %>% dexp(., rate = theta) %>% log() %>% sum()
-  l2 <- act_data %>% filter(event == 0) %>% pull(time) %>% 1-pexp(., rate = theta) %>% log() %>% sum()
- # -sum(log(dexp(data[data["event"] == 1]["time"], rate = theta))) - sum(log(pexp(data[data["event"] == 0]["time"], rate = theta)))
+  l1 <- act_data %>% 
+    filter(event == 1) %>% 
+    pull(time) %>% 
+    dexp(rate = theta, log = T)  %>% 
+    sum()
+  l2 <- act_data %>% 
+    filter(event == 0) %>% 
+    pull(time) %>% 
+    (function (x) 1-pexp(x, rate = theta))() %>% 
+    log() %>% 
+    sum()
  -l1-l2
 }
-act_data %>% filter(event == 1) %>% pull(time) %>% dexp(rate = theta) %>% log() %>% sum()
-act_data %>% filter(event == 0) %>% pull(time) %>% pexp(rate = theta) %>% log()
 
 theta <- seq(0, 1e-3, 1e-5)
-nll(1e-3, act_data)
-plot(theta, nll(theta, act_data))
+MLE_rate <- optimise(nll, c(0, 1e-3), data = act_data)$minimum
+
+c <- exp(-1/2*qchisq(1-alpha,1))
+
+plot(theta, sapply(theta, nll, data = act_data), "l")
+abline(v = MLE_rate)
+abline(1/c, 0)
+
+
+
+
+
+# a_b1 <- b1[p/max(p) > c]
+# CI_b1 <- c(min(a_b1), max(a_b1))
+
 ```
 
 
