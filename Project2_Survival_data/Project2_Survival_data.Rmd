@@ -62,7 +62,7 @@ summary(act_data)
 #ggsave("Plots/pairplot_act.png", pairplot_act)
 ```
 
-# Analysis of binomial data
+# Analysis of the binary data
 
 ## Binomial fit - all
 
@@ -104,7 +104,7 @@ A binomial distribution is fitted to each - as in previous question.
 
 
 
-```{r }
+```{r Binomial fit seperately }
 AZT_yes <- as.numeric(log_data[1,2:3])
 AZT_no <- as.numeric(log_data[2,2:3])
 
@@ -131,7 +131,9 @@ CI_no
 ```
 We notice a slight overlap in the 95 \% confidence intervals, indicating no difference (on a 5 \& significance level) in the succes probabilities ('succes' = you have AIDS).
 
-## Estimate the parameters in the model (logistic model) with parameters $\beta_0$ and $\beta_1$
+## Parameter estimation (logistic)
+Estimate the parameters in the model (logistic model) with parameters $\beta_0$ and $\beta_1$
+
 With a logistic model we get the succes probability for the control group $p_0$ and for the test group $p_1$:
 $$p_{0}=\frac{e^{\beta_{0}}}{1+e^{\beta_{0}}}, \quad p_{1}=\frac{e^{\beta_{0}+\beta_{1}}}{1+e^{\beta_{0}+\beta_{1}}}$$
 The parameter $b_1$ is the parameter describing the difference in succes probabilities ie. if $\beta_1 = 0$ no difference.
@@ -140,7 +142,7 @@ $$L(\beta_0, \beta_1) = \Pi_i p_i^{y_i}(1-p_i)^{1-y_i}$$
 with $y_i$ denoting succes in category i. $i=0$ control group, $i=1$ test group.
 The log likelihood for this is
 $$logL(\beta_0, \beta_1) = \sum_i \left[(\beta_0 + \beta_1 \cdot group_i)y_i - log(1 + exp(\beta_0 + \beta_1 \cdot group_i)) \right]$$
-```{r}
+```{r Parameter estimation (logistic)}
 logL_partial <- function(b0, b1, data, AZT = TRUE){
     y = if (AZT) {data[1,2]} else {data[2,2]} %>% as.numeric()
     n = if (AZT) {data[1,3]} else {data[2,3]} %>% as.numeric()
@@ -203,37 +205,97 @@ The 95% confidence interval does not include 0. The difference is significant.
 
 
 
-# Survival stuff
+# Analysis of the survival time data
 
-A little bit of summary statistics .... Proportion of death/AIDS in each group...
-```{r}
+## Summary statistics
+
+The table below shows the proportions of the different groups
+
+```{r Summary statistics}
 act_data <- act_data %>% 
   select(time, event, tx)
 
-act_data$event
+summary_table <- table(act_data$event, act_data$tx) %>% 
+  rbind("Total" = colSums(.)) %>% 
+  cbind("Total" = rowSums(.)) 
+names(attributes(summary_table)$dimnames) <- c("Event", "Treatment")
+
+cat("Summary table:\n")
+summary_table
+
+# summary_table %>% xtable::xtable()
+
+
 
 ```
 
 ## Exponential distribution
+
 The variable 'event' describes wheter or not the patient has gotten AIDS (1) or not (0). However, some patients left the study, or the study was terminated before the patients had developed AIDS. Hence for the healthy patients event = 0 the time of event is longer than the time reported.
 Therefore, we have to work with 2 likelihood functions: $L_{event = 1}(\theta)$ and $L_{event = 0}(\theta)$.
 $L_{event = 1}(\theta)$ is the usual likelihood function: $L_{event = 1} = \Pi_i f_{\theta} (x_i)$.
 In the latter case we have to use the survival function $g(x) = 1 - F(x) = 1 - P(X\leq x_i)$ instead of the density. $L_{event = 0}(\theta) = \Pi_i g_{\theta}(x_i) = \Pi_i ( 1 - P(X<x_i))$.
 The full likelihood is hence $L(\theta) = L_{event = 0}(\theta) L_{event = 1}(\theta)$
 
-```{r}
-data <- act_data$time
-likelihood_gamma <- function(theta, data){
-    -sum(dgamma(data, shape = theta[1], rate = theta[2], log = T))
-}
-likelihood_pois <- function(theta, data)
-  -sum(dpois(data, lambda = theta[1], log = T))
-dpois
-opt <- nlminb(c(5,5), likelihood_gamma, lower = c(0,0), data = data)
 
-x <- seq(1,400, 1)
-plot(x,dgamma(x, opt$par[1], opt$par[2]), 'l')
-par(new = T)
-hist(data)
+### All data
+
+```{r Exp fit - all data}
+nll <- function(theta, data){
+  l1 <- act_data %>% 
+    filter(event == 1) %>% 
+    pull(time) %>% 
+    dexp(rate = theta, log = T)  %>% 
+    sum()
+  l2 <- act_data %>% 
+    filter(event == 0) %>% 
+    pull(time) %>% 
+    (function (x) 1-pexp(x, rate = theta))() %>% 
+    log() %>% 
+    sum()
+ -l1-l2
+}
+
+theta <- seq(0, 1e-3, 1e-5)
+MLE_rate <- optimise(nll, c(0, 1e-3), data = act_data)$minimum
+
+c <- exp(-1/2*qchisq(1-alpha,1))
+
+plot(theta, sapply(theta, nll, data = act_data), "l")
+abline(v = MLE_rate)
+abline(1/c, 0)
+
+
+
+
+
+# a_b1 <- b1[p/max(p) > c]
+# CI_b1 <- c(min(a_b1), max(a_b1))
+
+```
+
+
+```{r Fit supposed solution}
+d <- act_data
+## likelihood function for exponential distribution with out differenceing on treatment
+nll <- function(theta){
+  -sum(log(dexp(d[d$"event" == 1, ]$time, rate = theta))) -
+    sum(log(1-pexp(d[d$"event" == 0, ]$time, rate = theta)))
+}
+theta <- seq(0, 0.001, by = 0.00001)
+plot(theta, sapply(theta, nll), type = 'l')
+rate <- nlminb(0.001, nll, lower = 0)
+opt <- optimise(nll, c(0, 0.001))
+1/opt$minimum
+
+## Likelihood function for two parameter model
+nll <- function(theta){
+  -sum(log(dexp(d["event" == 1 & "tx" == 0]$time, rate = exp(-theta[1])))) -
+    sum(log(1-pexp(d["event" == 0 & "tx" == 0]$time, rate = exp(-theta[1]))))-
+    sum(log(dexp(d["event" == 1 & "tx" == 1]$time, rate = exp(-theta[1]-theta[2])))) -
+    sum(log(1-pexp(d["event" == 0 & "tx" == 1]$time, rate = exp(-theta[1]-theta[2]))))
+}
+
+rate.2 <- optim(c(7, 10), nll, hessian = T)
 ```
 
