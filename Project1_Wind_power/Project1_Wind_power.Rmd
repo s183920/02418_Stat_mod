@@ -19,29 +19,11 @@ library(tidyr)
 library(ggplot2)
 library(GGally)
 library(magrittr)
-
+library(MASS)
 ```
 
 
 # Data
-The original data is organized in six variables - the first three of them describing the date, the fourth describing the average 
-daily wind power production, the fifth and sixth describing the wind speed in m/s and wind direction in radians respectively. 
-
-Before working with this dataset the three variables concerning the date were merged into one variable containing all three. 
-Firstly, a graphical presentation of data were created and can be seen as (...) below. It is clearly seen tat none of the variables of the data 
-is normally distributed. The *wind speed* looks rather rightly skewed, and the *wind direction* looks left skrewed or could possibly be a 
-bimodal distribution. 
-
-
-*** present some summary statistics.
-
-Before we move on to the modelling of the data, data transformations will be performed. 
-
-(Before you start the model-ling it will make some of the questions simpler if
-you normalize (to numbers strictly between 0 and 1) the power production.
-Be careful to do this in a meaningful way (hint: relate to installed capacity)
-and describe precisely how it is done.)
-
 
 ## Load
 ```{r}
@@ -54,17 +36,16 @@ summary(wind_data)
 ```{r}
 # ggpairs(~pow.obs + ws30 + wd30, wind_data)
 pairplot  <- ggpairs(wind_data, columns = c("pow.obs", "ws30", "wd30"))
-wind_data$r.day
 pairplot
 ggsave("Plots/pairplot_wind.png", pairplot)
 ```
 
-qq-plots herunder
+### QQ-plots
 
 ```{r}
 qqnorm(wind_data[pow.obs], ylim, main = "Normal Q-Q Plot",
        xlab = "Theoretical Quantiles", ylab = "Sample Quantiles",
-       plot.it = TRUE, datax = FALSE, …)
+       plot.it = TRUE, datax = FALSE)
 qqline(wind_data[1])
 
 plot(wind_data$r.day)
@@ -73,16 +54,129 @@ wind_data$r.day %>% as.factor() %>%  density() %>% plot()
 
 
 
+
 # Data transformations
 
 ## Box-Cox
 ```{r}
-bc.trans <- function(lambda,y){
+
+
+
+## profile likelihood for lambda
+lp.lambda <- function(lambda,y,func="boxcox"){
+  n <- length(y)
+  
+  if (func == "proposed1"){
+    #print("proposed 1")
+    y.l <- 1/lambda*log((y^lambda)/(1-y^lambda))
+  }
+  
+  if (func == "proposed2"){
+    #print("proposed 2")
+    y.l <- 2*log(y^lambda/(1-y)^(1-lambda))
+  }
+  
+  else{
+    #print("boxcox 1")
     y.l <- (y^lambda-1)/lambda
     if(lambda==0){y.l <- log(y)}
-    return(y.l)
+  }
+
+  sigmasq <- 1/n * sum((y.l-mean(y.l))^2)
+  -n/2 * log(sigmasq) + (lambda-1)*sum(log(y))
 }
+
+bc.trans <- function(lambda,y){
+  y.l <- (y^lambda-1)/lambda
+  if(lambda==0){y.l <- log(y)}
+  return(y.l)
+}
+
+datasets = cbind(wind_data$wd30, wind_data$pow.obs, wind_data$ws30)
+range = cbind(c(-3,3), c(0,1000), c(0,1))
+funcs = c("boxcox", "proposed1", "proposed2")
+
+lp.lambda(0.8,datasets[,2], "boxcox")
+
+
+par(mfrow=c(3,3))
+opt = optimize(lp.lambda, range[,1],y=datasets[,1], maximum=TRUE)$maximum
+qqnorm(bc.trans(opt, datasets[,1]))
+qqline(bc.trans(opt, datasets[,1]))
+
+fit <- fitdistr(datasets[,1], "normal")
+aic = AIC(fit, k = 2)
+para <- fit$estimate
+hist(datasets[,1], prob = TRUE, title = as.character(aic))
+x <- seq(5, 15, length=1000)
+curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+
+fit <- fitdistr(bc.trans(opt, datasets[,1]), "normal")
+aic = AIC(fit, k = 2)
+para <- fit$estimate
+hist(bc.trans(opt, datasets[,1]), prob = TRUE, title = as.character(aic))
+x <- seq(5, 15, length=1000)
+curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+
+
+
+
+opt = optimize(lp.lambda,range[,1],y=datasets[,2], func=funcs[1], maximum=TRUE)$maximum
+qqnorm(bc.trans(opt, datasets[,2]))
+qqline(bc.trans(opt, datasets[,2]))
+
+fit <- fitdistr(datasets[,3], "normal")
+aic = AIC(fit, k = 2)
+para <- fit$estimate
+hist(datasets[,3], prob = TRUE, title = as.character(aic))
+x <- seq(5, 15, length=1000)
+curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+
+fit <- fitdistr(bc.trans(opt, datasets[,2]), "normal")
+aic = AIC(fit, k = 2)
+para <- fit$estimate
+hist(bc.trans(opt, datasets[,2]), prob = TRUE, title = as.character(aic))
+x <- seq(5, 15, length=1000)
+curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+
+
+
+opt = optimize(lp.lambda,range[,1],y=datasets[,3], func=funcs[1], maximum=TRUE)$maximum
+qqnorm(bc.trans(opt, datasets[,3]))
+qqline(bc.trans(opt, datasets[,3]))
+
+fit <- fitdistr(datasets[,3], "normal")
+aic = AIC(fit, k = 2)
+para <- fit$estimate
+hist(datasets[,3], prob = TRUE, title = as.character(aic))
+x <- seq(5, 15, length=1000)
+curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+
+fit <- fitdistr(bc.trans(opt, datasets[,3]), "normal")
+aic = AIC(fit, k = 2)
+para <- fit$estimate
+hist(bc.trans(opt, datasets[,3]), prob = TRUE, title = as.character(aic))
+x <- seq(5, 15, length=1000)
+curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+
+
+
+
+
+# par(mfrow=c(3,3))
+# for (i in c(1,3)){
+#   for (j in c(1,2,3)){
+#     opt = optimize(lp.lambda,range[,i],y=datasets[,j], func=funcs[i], maximum=TRUE)$maximum
+#     qqnorm(bc.trans(opt, datasets[,j]))
+#     qqline(bc.trans(opt, datasets[,j]))
+# 
+#   }
+# }
+
+
 ```
+
+
 
 
 ## Log-transformation
@@ -98,16 +192,35 @@ bc.trans <- function(lambda,y){
 ## Normal distribution
 ```{r}
 
-```
 
+all_models = c("beta", "cauchy", "chi-squared", "exponential", "gamma", "geometric", "log-normal", "lognormal", "logistic", "negative binomial", "normal", "Poisson", "t", "weibull")
+
+
+models = c( "beta", "gamma", "lognormal", "normal")
+
+
+fit <- fitdistrplus(datasets[,3], beta, )
+
+for (model in models){
+  fit <- fitdistr(datasets[,3], model)
+  aic = AIC(fit, k = 2)
+  print(model)
+  print(aic)
+  # para <- fit$estimate
+  # hist(datasets[,3], prob = TRUE, title = as.character(aic))
+  # x <- seq(5, 15, length=1000)
+  # curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+}
+library(CRAN)
 ## Multimodal distribution
-```{r}
+```
 
 ```
 
 
 ## Von Mises distribution
 ```{r}
+?fitdistr()
 
 ```
 
@@ -116,6 +229,11 @@ bc.trans <- function(lambda,y){
 ```{r}
 
 ```
+
+
+
+
+
 
 
 
