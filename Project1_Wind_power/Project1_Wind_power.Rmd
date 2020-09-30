@@ -19,6 +19,7 @@ library(tidyr)
 library(ggplot2)
 library(GGally)
 library(magrittr)
+
 ```
 
 
@@ -52,7 +53,8 @@ summary(wind_data)
 
 ```{r}
 # ggpairs(~pow.obs + ws30 + wd30, wind_data)
-pairplot  <- ggpairs(wind_data, columns = c("pow.obs", "ws30", "wd30", "r.day"))
+pairplot  <- ggpairs(wind_data, columns = c("pow.obs", "ws30", "wd30"))
+wind_data$r.day
 pairplot
 ggsave("Plots/pairplot_wind.png", pairplot)
 ```
@@ -64,6 +66,9 @@ qqnorm(wind_data[pow.obs], ylim, main = "Normal Q-Q Plot",
        xlab = "Theoretical Quantiles", ylab = "Sample Quantiles",
        plot.it = TRUE, datax = FALSE, …)
 qqline(wind_data[1])
+
+plot(wind_data$r.day)
+wind_data$r.day %>% as.factor() %>%  density() %>% plot()
 ```
 
 
