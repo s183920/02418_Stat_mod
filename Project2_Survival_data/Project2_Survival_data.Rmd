@@ -253,25 +253,40 @@ nll <- function(theta, data){
     (function (x) 1-pexp(x, rate = theta))() %>% 
     log() %>% 
     sum()
- -l1-l2
+ -l1
 }
 
-theta <- seq(0, 1e-3, 1e-5)
-MLE_rate <- optimise(nll, c(0, 1e-3), data = act_data)$minimum
+theta <- seq(2e-4, 8e-4, 1e-6)
+opt_rate <- optimise(nll, c(1e-10, 1e-3), data = act_data)
 
 c <- exp(-1/2*qchisq(1-alpha,1))
+to_be_plotted <- -(sapply(theta, nll, data = act_data) - opt_rate$objective)
 
-plot(theta, sapply(theta, nll, data = act_data), "l")
-abline(v = MLE_rate)
-abline(1/c, 0)
+plot(theta, to_be_plotted, "l", main = "Standardized Log likelihood for rate parameter (expontial)", xlab = expression(lambda), ylab = "Log Likelihood")
+abline(v = opt_rate2$par)
+abline(h = log(c))
+abline(v = rate$minimum)
+# MLE <- theta[sapply(theta, nll, data =  act_data) == min(sapply(theta, nll, data =  act_data))]
+# abline(v = MLE)
+# abline(v = opt_rate$minimum)
+
+```
+```{r}
+nll <- function(theta, data){
+  time <- data$time
+  event <- data$event
+  sum(event)*log(theta) - theta * sum(time)
+  
+  
+}
 
 
+opt0 <- optimize(nll, c(1e-10, 1e-1), data = act_data %>% filter(tx == 0), maximum = T)
+opt1 <- optimize(nll, c(1e-10, 1e-1), data = act_data %>% filter(tx == 1), maximum = T)
 
-
-
-# a_b1 <- b1[p/max(p) > c]
-# CI_b1 <- c(min(a_b1), max(a_b1))
-
+exp(opt1$objective)/exp(opt0$objective)
+AIC0 <- -2*opt0$objective + 2
+  AIC1 <- -2*opt1$objective + 2
 ```
 
 
