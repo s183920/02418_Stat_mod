@@ -253,19 +253,18 @@ nll <- function(theta, data){
     (function (x) 1-pexp(x, rate = theta))() %>% 
     log() %>% 
     sum()
- -l1
+ -(l1+l2)
 }
 
 theta <- seq(2e-4, 8e-4, 1e-6)
-opt_rate <- optimise(nll, c(1e-10, 1e-3), data = act_data)
+opt_rate <- optimise(nll, c(1e-10, 1), data = act_data)
 
 c <- exp(-1/2*qchisq(1-alpha,1))
 to_be_plotted <- -(sapply(theta, nll, data = act_data) - opt_rate$objective)
 
 plot(theta, to_be_plotted, "l", main = "Standardized Log likelihood for rate parameter (expontial)", xlab = expression(lambda), ylab = "Log Likelihood")
-abline(v = opt_rate2$par)
 abline(h = log(c))
-abline(v = rate$minimum)
+abline(v = opt_rate$minimum)
 # MLE <- theta[sapply(theta, nll, data =  act_data) == min(sapply(theta, nll, data =  act_data))]
 # abline(v = MLE)
 # abline(v = opt_rate$minimum)
@@ -277,40 +276,79 @@ nll <- function(theta, data){
   event <- data$event
   sum(event)*log(theta) - theta * sum(time)
   
-  
 }
 
+opt <- optimize(nll, c(1e-10, 1e-1), data = act_data, maximum = T)
+theta <- seq(2e-4,6e-4, 1e-5)
+plot(theta, sapply(theta, nll, data = act_data) - opt$objective, 'l', ylab = "Log likelihood", main = "All data")
+c <- -1/2 * qchisq(1-0.05, df = 1)
+abline(h = c)
+abline(v = opt$maximum)
 
-opt0 <- optimize(nll, c(1e-10, 1e-1), data = act_data %>% filter(tx == 0), maximum = T)
-opt1 <- optimize(nll, c(1e-10, 1e-1), data = act_data %>% filter(tx == 1), maximum = T)
 
-exp(opt1$objective)/exp(opt0$objective)
-AIC0 <- -2*opt0$objective + 2
-  AIC1 <- -2*opt1$objective + 2
+
+
+
+
+```
+```{r}
+opt0 <- optimize(nll, c(0,1), data = act_data %>% filter(tx == 0), maximum = T)
+opt1 <- optimize(nll, c(0,1), data = act_data %>% filter(tx == 1), maximum = T)
+theta <- seq(1e-4,7e-4, 1e-6)
+plot(theta, nll(theta, act_data %>%  filter(tx == 0)) - opt0$objective, 'l', main = "Test for difference in rate in the 2 groups", ylab = "Log likelihood", ylim = c(-10,0))
+lines(theta, nll(theta, act_data %>%  filter(tx == 1)) - opt1$objective, 'l', col = 'red')
+legend("bottomright",legend = c("tx = 0", "tx = 1"), fill = c("black", "red"))
+abline(h = c)
+
+CI_tx0_array <- theta[nll(theta, act_data %>% filter(tx == 0)) - opt0$objective > c]
+CI_tx0 <- c(min(CI_tx0_array), max(CI_tx0_array))
+
+CI_tx1_array <- theta[nll(theta, act_data %>% filter(tx == 1)) - opt1$objective > c]
+CI_tx1 <- c(min(CI_tx1_array), max(CI_tx1_array))
+
+cat("Confidence intervals for tx = 0:", CI_tx0, "\n")
+cat("confidence intervals for tx = 1:", CI_tx1)
+
+LR <- exp(opt0$objective - opt1$objective) # Might not be necessary - ignore this
 ```
 
 
 ```{r Fit supposed solution}
-d <- act_data
-## likelihood function for exponential distribution with out differenceing on treatment
-nll <- function(theta){
-  -sum(log(dexp(d[d$"event" == 1, ]$time, rate = theta))) -
-    sum(log(1-pexp(d[d$"event" == 0, ]$time, rate = theta)))
-}
-theta <- seq(0, 0.001, by = 0.00001)
-plot(theta, sapply(theta, nll), type = 'l')
-rate <- nlminb(0.001, nll, lower = 0)
-opt <- optimise(nll, c(0, 0.001))
-1/opt$minimum
-
 ## Likelihood function for two parameter model
-nll <- function(theta){
-  -sum(log(dexp(d["event" == 1 & "tx" == 0]$time, rate = exp(-theta[1])))) -
-    sum(log(1-pexp(d["event" == 0 & "tx" == 0]$time, rate = exp(-theta[1]))))-
-    sum(log(dexp(d["event" == 1 & "tx" == 1]$time, rate = exp(-theta[1]-theta[2])))) -
-    sum(log(1-pexp(d["event" == 0 & "tx" == 1]$time, rate = exp(-theta[1]-theta[2]))))
+
+# nll <- function(theta){
+#   -sum(log(dexp(d["event" == 1 & "tx" == 0]$time, rate = exp(-theta[1])))) -
+#     sum(log(1-pexp(d["event" == 0 & "tx" == 0]$time, rate = exp(-theta[1]))))-
+#     sum(log(dexp(d["event" == 1 & "tx" == 1]$time, rate = exp(-theta[1]-theta[2])))) -
+#     sum(log(1-pexp(d["event" == 0 & "tx" == 1]$time, rate = exp(-theta[1]-theta[2]))))
+# }
+nll_combined <- function(theta, data){
+  rate0 <- exp(-theta[1])
+  rate1 <- exp(-(theta[1] + theta[2]))
+  
+  -(nll(rate0, data %>% filter(tx == 0)) + nll(rate1, data %>% filter(tx == 1)))
+  
 }
 
-rate.2 <- optim(c(7, 10), nll, hessian = T)
+# rate.2 <- optim(c(7, 10), nll, hessian = T)
+nlminb(c(0,0), nll_combined, lower = c(-Inf, -Inf), data = act_data)
+
+nll_profile <- function(b1, data){
+  nll_b0 <- function(b0, b1, data){
+  rate0 <- exp(-b0)
+  rate1 <- exp(-(b0 + b1))
+  
+  -(nll(rate0, data %>% filter(tx == 0)) + nll(rate1, data %>% filter(tx == 1)))
+  }
+  b0 = nlminb(0, nll_b0, lower = -Inf, data = act_data, b1 = b1)$par
+  # b0 = optimise(nll_b0,)
+  
+  nll_b0(b0,b1,data)
+}
+opt_b1 <- nlminb(c(0), nll_profile, lower = c(-Inf), data = act_data)
+b1 <- seq(0,2, 0.1)
+plot(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective , 'l', main = "Profile likelihood for b1", ylab = "log likelihood")
+abline(h= c)
+abline(v = opt_b1$par)
 ```
 
