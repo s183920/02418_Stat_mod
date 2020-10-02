@@ -86,11 +86,11 @@ binomial <- function(data, theta){
     choose(n,k) * theta^k *(1-theta)^(n-k)
 }
 
-theta <- seq(0,1,0.001)
+theta <- seq(0,1,0.000001)
 MLE <- data[1]/data[2]
 c <- exp(-1/2*qchisq(1-0.05,1))
-
-plot(theta, binomial(data, theta)/max(binomial(data, theta)), "l")
+data[1]/data[2]
+plot(theta, binomial(data, theta)/max(binomial(data, theta)), "l", main = "Likelihhod of binomial dist.- full data set", ylab = "Normalised likelihood")
 abline(c,0)
 a <- theta[binomial(data,theta)/max(binomial(data,theta)) > c]
 CI <- c(min(a), max(a))
@@ -109,13 +109,14 @@ AZT_yes <- as.numeric(log_data[1,2:3])
 AZT_no <- as.numeric(log_data[2,2:3])
 
 theta <- seq(0,1,0.00001)
-par(mfrow=c(1,2))
+
 alpha <- 0.05
 c <- exp(-1/2*qchisq(1-alpha,1))
-plot(theta, binomial(AZT_yes, theta)/max(binomial(AZT_yes, theta)), "l")
+plot(theta, binomial(AZT_yes, theta)/max(binomial(AZT_yes, theta)), "l", main = "Likelihood functions of the control and test group", ylab = "Normalise likelihood")
 abline(c, 0)
-plot(theta, binomial(AZT_no, theta)/max(binomial(AZT_no, theta)), "l")
+lines(theta, binomial(AZT_no, theta)/max(binomial(AZT_no, theta)), "l", col = "red")
 abline(c, 0)
+legend("bottomright",legend = c("AZT treatment group", "control group"), fill = c("black", "red"))
 
 MLE_yes <- optimize(binomial, c(0,1), data = AZT_yes, maximum = TRUE)$maximum
 MLE_no <-  optimize(binomial, c(0,1), data = AZT_no, maximum = TRUE)$maximum
@@ -177,7 +178,7 @@ profile_b1 <- function(b1, data){
 }
 
 
-b1 <- seq(-5,5,0.01)
+b1 <- seq(-2,0,0.0001)
 alpha <- 0.05
 c <- exp(-1/2*qchisq(1-alpha,1))
 p = c()
@@ -281,8 +282,8 @@ nll <- function(theta, data){
 opt <- optimize(nll, c(1e-10, 1e-1), data = act_data, maximum = T)
 theta <- seq(2e-4,6e-4, 1e-5)
 plot(theta, sapply(theta, nll, data = act_data) - opt$objective, 'l', ylab = "Log likelihood", main = "All data")
-c <- -1/2 * qchisq(1-0.05, df = 1)
-abline(h = c)
+c_l <- -1/2 * qchisq(1-0.05, df = 1)
+abline(h = c_l)
 abline(v = opt$maximum)
 
 
@@ -298,7 +299,7 @@ theta <- seq(1e-4,7e-4, 1e-6)
 plot(theta, nll(theta, act_data %>%  filter(tx == 0)) - opt0$objective, 'l', main = "Test for difference in rate in the 2 groups", ylab = "Log likelihood", ylim = c(-10,0))
 lines(theta, nll(theta, act_data %>%  filter(tx == 1)) - opt1$objective, 'l', col = 'red')
 legend("bottomright",legend = c("tx = 0", "tx = 1"), fill = c("black", "red"))
-abline(h = c)
+abline(h = c_l)
 
 CI_tx0_array <- theta[nll(theta, act_data %>% filter(tx == 0)) - opt0$objective > c]
 CI_tx0 <- c(min(CI_tx0_array), max(CI_tx0_array))
@@ -317,17 +318,28 @@ LR <- exp(opt0$objective - opt1$objective) # Might not be necessary - ignore thi
 ```{r Fit supposed solution}
 ## Likelihood function for two parameter model
 
-# nll <- function(theta){
-#   -sum(log(dexp(d["event" == 1 & "tx" == 0]$time, rate = exp(-theta[1])))) -
-#     sum(log(1-pexp(d["event" == 0 & "tx" == 0]$time, rate = exp(-theta[1]))))-
-#     sum(log(dexp(d["event" == 1 & "tx" == 1]$time, rate = exp(-theta[1]-theta[2])))) -
-#     sum(log(1-pexp(d["event" == 0 & "tx" == 1]$time, rate = exp(-theta[1]-theta[2]))))
+# nll_help <- function(theta){
+#   theta = c(1,1)
+#   -sum(log(dexp(act_data %>% filter(event == 1 & tx == 0) %>% pull(time), rate = exp(-theta[1])))) -
+#     sum(log(1-pexp(act_data %>% filter(event == 0 & tx == 0) %>% pull(time), rate = exp(-theta[1]))))-
+#     sum(log(dexp(act_data %>% filter(event == 1 & tx == 1) %>% pull(time), rate = exp(-theta[1]-theta[2])))) -
+#     sum(log(1-pexp(act_data %>% filter(event == 1 & tx == 1) %>% pull(time), rate = exp(-theta[1]-theta[2]))))
 # }
+# nlminb(c(0,0), nll_help, lower = c(-Inf, -Inf))
+# nll_help(c(0,0))
+
+
+nll <- function(theta, data){
+  time <- data$time
+  event <- data$event
+  sum(event)*log(theta) - theta * sum(time)
+  
+}
 nll_combined <- function(theta, data){
   rate0 <- exp(-theta[1])
   rate1 <- exp(-(theta[1] + theta[2]))
   
-  -(nll(rate0, data %>% filter(tx == 0)) + nll(rate1, data %>% filter(tx == 1)))
+  -(nll(rate0, data %>% filter(tx == 1)) + nll(rate1, data %>% filter(tx == 0)))
   
 }
 
@@ -349,7 +361,60 @@ nll_profile <- function(b1, data){
 opt_b1 <- nlminb(c(0), nll_profile, lower = c(-Inf), data = act_data)
 b1 <- seq(0,2, 0.1)
 plot(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective , 'l', main = "Profile likelihood for b1", ylab = "log likelihood")
-abline(h= c)
+abline(h= c_l)
 abline(v = opt_b1$par)
+
+d = act_data$event
+t = act_data$tx
+y = act_data$time
+-(log(sum(t*d)/(sum(y*t))) + 7.624363 )
+
+a = sum(d-d*t)
+b = sum(d*t)
+c = sum(y*(1-t))
+d = sum(y*t)
+
+-log((a+b)/(c+d*exp(-0.69)))
+
+```
+```{r}
+ll_profile <- function(b1, data){
+  y = data$time
+  d = data$event
+  t = data$tx
+  
+  a = sum(d-d*t)
+  b = sum(d*t)
+  c = sum(y*(1-t))
+  d2 = sum(y*t)
+  
+  MLE_b0 = -log( (a+b)/(c+exp(-b1)) )
+  
+  theta0 = exp(-MLE_b0)
+  theta1 = exp(-(MLE_b0 + b1))
+  
+  a * log(theta0) + b * log(theta1) - c * theta0 - d2 * theta1
+  
+}
+
+b1 <- seq(0,2.5,0.1)
+opt = optimize(ll_profile, c(-10,10), data = act_data, maximum = T)
+plot(b1, sapply(b1, ll_profile, data = act_data) - opt$objective, 'l')
+# lines(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective)
+abline(h = c_l)
+
+y = act_data$time
+d = act_data$event
+t = act_data$tx
+
+a = sum(d-d*t)
+b = sum(d*t)
+c = sum(y*(1-t))
+d2 = sum(y*t)
+
+MLE_b0 = -log( (a+b)/(c+exp(-0.699172)) )
+MLE_B1 = -(log(b/d2)+7.6203 )
+
+
 ```
 
