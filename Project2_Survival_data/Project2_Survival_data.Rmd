@@ -221,7 +221,7 @@ summary_table <- table(act_data$event, act_data$tx) %>%
 names(attributes(summary_table)$dimnames) <- c("Event", "Treatment")
 
 cat("Summary table:\n")
-summary_table
+summary_table %>% xtable::xtable(caption = "The proportions of people who died or got AIDS in the two treatment groups", label = "survival_props")
 
 # summary_table %>% xtable::xtable()
 
@@ -231,11 +231,11 @@ summary_table
 
 ## Exponential distribution
 
-The variable 'event' describes wheter or not the patient has gotten AIDS (1) or not (0). However, some patients left the study, or the study was terminated before the patients had developed AIDS. Hence for the healthy patients event = 0 the time of event is longer than the time reported.
-Therefore, we have to work with 2 likelihood functions: $L_{event = 1}(\theta)$ and $L_{event = 0}(\theta)$.
-$L_{event = 1}(\theta)$ is the usual likelihood function: $L_{event = 1} = \Pi_i f_{\theta} (x_i)$.
-In the latter case we have to use the survival function $g(x) = 1 - F(x) = 1 - P(X\leq x_i)$ instead of the density. $L_{event = 0}(\theta) = \Pi_i g_{\theta}(x_i) = \Pi_i ( 1 - P(X<x_i))$.
-The full likelihood is hence $L(\theta) = L_{event = 0}(\theta) L_{event = 1}(\theta)$
+  The variable 'event' describes wheter or not the patient has gotten AIDS (1) or not (0). However, some patients left the study, or the study was terminated before the patients had developed AIDS. Hence for the healthy patients event = 0 the time of event is longer than the time reported.
+  Therefore, we have to work with 2 likelihood functions: $L_{event = 1}(\theta)$ and $L_{event = 0}(\theta)$.
+  $L_{event = 1}(\theta)$ is the usual likelihood function: $L_{event = 1} = \Pi_i f_{\theta} (x_i)$.
+  In the latter case we have to use the survival function $g(x) = 1 - F(x) = 1 - P(X\leq x_i)$ instead of the density. $L_{event = 0}(\theta) = \Pi_i g_{\theta}(x_i) = \Pi_i ( 1 - P(X<x_i))$.
+  The full likelihood is hence $L(\theta) = L_{event = 0}(\theta) L_{event = 1}(\theta)$
 
 
 ### All data
@@ -270,6 +270,7 @@ The full likelihood is hence $L(\theta) = L_{event = 0}(\theta) L_{event = 1}(\t
 # # abline(v = opt_rate$minimum)
 # 
 # ```
+
 ```{r}
 nll <- function(theta, data){
   time <- data$time
@@ -358,12 +359,12 @@ $$\hat{\theta} \pm z_{1-\alpha / 2} I^{-1 / 2}(\hat{\theta})$$
 where $\hat{\theta}$ is the MLE, z is a quantile in the standard normal distribution and I is the information
 
 ```{r}
-CI_wald <- function(theta_hat, info){theta_hat+c(-1,1)*qnorm(1-0.05/2)*1/sqrt(info)}
+CI_wald <- function(theta_hat, info){theta_hat+c(-1,1)*qnorm(1-0.05/2)*sqrt(1/info)}
 
-hess <- as.numeric(numDeriv::hessian(nll_combined, opt_bs$par, data = act_data))
+hess <- numDeriv::hessian(nll_combined, opt_bs$par, data = act_data)
 
-cat("95% wald confidence interval for b0 is: ", CI_wald(opt_bs$par[1], hess[1]))
-cat("\n95% wald confidence interval for b1 is: ", CI_wald(opt_bs$par[2], hess[4]))
+cat("95% wald confidence interval for b0 is: ", CI_wald(opt_bs$par[1], hess[1,1]))
+cat("\n95% wald confidence interval for b1 is: ", CI_wald(opt_bs$par[2], hess[2,2]))
 
 ```
 
