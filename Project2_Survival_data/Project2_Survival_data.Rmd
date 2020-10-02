@@ -178,7 +178,7 @@ profile_b1 <- function(b1, data){
 }
 
 
-b1 <- seq(-2,0,0.0001)
+b1 <- seq(-2,0,0.01)
 alpha <- 0.05
 c <- exp(-1/2*qchisq(1-alpha,1))
 p = c()
@@ -188,16 +188,16 @@ for (i in 1:length(b1)){
 
 MLE_b1 <- optimize(profile_b1, c(-5,5), data = log_data, maximum = T)$maximum
 
-plot(b1, p/max(p), 'l')
+plot(b1, p/max(p), 'l', main = "Profile likelihood for beta1", ylab = "Normalised likelihood")
 abline(c, 0)
-abline(v = MLE_b1)
+# abline(v = MLE_b1)
 
 
 
 a_b1 <- b1[p/max(p) > c]
 CI_b1 <- c(min(a_b1), max(a_b1))
 
-
+print(opt$par)
 cat("The maximum likelihood estimates of p0 and p1 are: p0 = ", p0, " p1 = ", p1, "\n")
 cat("The maximum profile likelihood estimate of b1 is:  ", MLE_b1, "\n")
 cat("With confidence intervals: ", CI_b1, "\n")
@@ -222,7 +222,7 @@ summary_table <- table(act_data$event, act_data$tx) %>%
 names(attributes(summary_table)$dimnames) <- c("Event", "Treatment")
 
 cat("Summary table:\n")
-summary_table %>% xtable::xtable(caption = "The proportions of people who died or got AIDS in the two treatment groups", label = "survival_props")
+summary_table
 
 # summary_table %>% xtable::xtable()
 
@@ -232,46 +232,45 @@ summary_table %>% xtable::xtable(caption = "The proportions of people who died o
 
 ## Exponential distribution
 
-  The variable 'event' describes wheter or not the patient has gotten AIDS (1) or not (0). However, some patients left the study, or the study was terminated before the patients had developed AIDS. Hence for the healthy patients event = 0 the time of event is longer than the time reported.
-  Therefore, we have to work with 2 likelihood functions: $L_{event = 1}(\theta)$ and $L_{event = 0}(\theta)$.
-  $L_{event = 1}(\theta)$ is the usual likelihood function: $L_{event = 1} = \Pi_i f_{\theta} (x_i)$.
-  In the latter case we have to use the survival function $g(x) = 1 - F(x) = 1 - P(X\leq x_i)$ instead of the density. $L_{event = 0}(\theta) = \Pi_i g_{\theta}(x_i) = \Pi_i ( 1 - P(X<x_i))$.
-  The full likelihood is hence $L(\theta) = L_{event = 0}(\theta) L_{event = 1}(\theta)$
+The variable 'event' describes wheter or not the patient has gotten AIDS (1) or not (0). However, some patients left the study, or the study was terminated before the patients had developed AIDS. Hence for the healthy patients event = 0 the time of event is longer than the time reported.
+Therefore, we have to work with 2 likelihood functions: $L_{event = 1}(\theta)$ and $L_{event = 0}(\theta)$.
+$L_{event = 1}(\theta)$ is the usual likelihood function: $L_{event = 1} = \Pi_i f_{\theta} (x_i)$.
+In the latter case we have to use the survival function $g(x) = 1 - F(x) = 1 - P(X\leq x_i)$ instead of the density. $L_{event = 0}(\theta) = \Pi_i g_{\theta}(x_i) = \Pi_i ( 1 - P(X<x_i))$.
+The full likelihood is hence $L(\theta) = L_{event = 0}(\theta) L_{event = 1}(\theta)$
 
 
 ### All data
 
-# ```{r Exp fit - all data}
-# nll <- function(theta, data){
-#   l1 <- act_data %>% 
-#     filter(event == 1) %>% 
-#     pull(time) %>% 
-#     dexp(rate = theta, log = T)  %>% 
-#     sum()
-#   l2 <- act_data %>% 
-#     filter(event == 0) %>% 
-#     pull(time) %>% 
-#     (function (x) 1-pexp(x, rate = theta))() %>% 
-#     log() %>% 
-#     sum()
-#  -(l1+l2)
-# }
-# 
-# theta <- seq(2e-4, 8e-4, 1e-6)
-# opt_rate <- optimise(nll, c(1e-10, 1), data = act_data)
-# 
-# c <- exp(-1/2*qchisq(1-alpha,1))
-# to_be_plotted <- -(sapply(theta, nll, data = act_data) - opt_rate$objective)
-# 
-# plot(theta, to_be_plotted, "l", main = "Standardized Log likelihood for rate parameter (expontial)", xlab = expression(lambda), ylab = "Log Likelihood")
-# abline(h = log(c))
-# abline(v = opt_rate$minimum)
-# # MLE <- theta[sapply(theta, nll, data =  act_data) == min(sapply(theta, nll, data =  act_data))]
-# # abline(v = MLE)
-# # abline(v = opt_rate$minimum)
-# 
-# ```
+```{r Exp fit - all data}
+nll <- function(theta, data){
+  l1 <- act_data %>% 
+    filter(event == 1) %>% 
+    pull(time) %>% 
+    dexp(rate = theta, log = T)  %>% 
+    sum()
+  l2 <- act_data %>% 
+    filter(event == 0) %>% 
+    pull(time) %>% 
+    (function (x) 1-pexp(x, rate = theta))() %>% 
+    log() %>% 
+    sum()
+ -(l1+l2)
+}
 
+theta <- seq(2e-4, 8e-4, 1e-6)
+opt_rate <- optimise(nll, c(1e-10, 1), data = act_data)
+
+c <- exp(-1/2*qchisq(1-alpha,1))
+to_be_plotted <- -(sapply(theta, nll, data = act_data) - opt_rate$objective)
+
+plot(theta, to_be_plotted, "l", main = "Standardized Log likelihood for rate parameter (expontial)", xlab = expression(lambda), ylab = "Log Likelihood")
+abline(h = log(c))
+abline(v = opt_rate$minimum)
+# MLE <- theta[sapply(theta, nll, data =  act_data) == min(sapply(theta, nll, data =  act_data))]
+# abline(v = MLE)
+# abline(v = opt_rate$minimum)
+
+```
 ```{r}
 nll <- function(theta, data){
   time <- data$time
@@ -287,7 +286,13 @@ c_l <- -1/2 * qchisq(1-0.05, df = 1)
 abline(h = c_l)
 abline(v = opt$maximum)
 
+
+
+
+
+
 ```
+
 
 
 ```{r}
@@ -342,7 +347,7 @@ nll_combined <- function(theta, data){
 }
 
 # rate.2 <- optim(c(7, 10), nll, hessian = T)
-opt_bs <- nlminb(c(0,0), nll_combined, lower = c(-Inf, -Inf), data = act_data)
+nlminb(c(0,0), nll_combined, lower = c(-Inf, -Inf), data = act_data)
 
 nll_profile <- function(b1, data){
   nll_b0 <- function(b0, b1, data){
@@ -375,6 +380,9 @@ d = sum(y*t)
 -log((a+b)/(c+d*exp(-0.69)))
 
 ```
+
+
+
 ```{r}
 ll_profile <- function(b1, data){
   y = data$time
@@ -415,22 +423,4 @@ MLE_B1 = -(log(b/d2)+7.6203 )
 
 
 ```
-
-
-## Wald confidence interval
-
-The wald confidence interval can be calculated by 
-$$\hat{\theta} \pm z_{1-\alpha / 2} I^{-1 / 2}(\hat{\theta})$$
-where $\hat{\theta}$ is the MLE, z is a quantile in the standard normal distribution and I is the information
-
-```{r}
-CI_wald <- function(theta_hat, info){theta_hat+c(-1,1)*qnorm(1-0.05/2)*sqrt(1/info)}
-
-hess <- numDeriv::hessian(nll_combined, opt_bs$par, data = act_data)
-
-cat("95% wald confidence interval for b0 is: ", CI_wald(opt_bs$par[1], hess[1,1]))
-cat("\n95% wald confidence interval for b1 is: ", CI_wald(opt_bs$par[2], hess[2,2]))
-
-```
-
 
