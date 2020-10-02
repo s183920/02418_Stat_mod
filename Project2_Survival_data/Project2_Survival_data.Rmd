@@ -240,36 +240,36 @@ The full likelihood is hence $L(\theta) = L_{event = 0}(\theta) L_{event = 1}(\t
 
 ### All data
 
-```{r Exp fit - all data}
-nll <- function(theta, data){
-  l1 <- act_data %>% 
-    filter(event == 1) %>% 
-    pull(time) %>% 
-    dexp(rate = theta, log = T)  %>% 
-    sum()
-  l2 <- act_data %>% 
-    filter(event == 0) %>% 
-    pull(time) %>% 
-    (function (x) 1-pexp(x, rate = theta))() %>% 
-    log() %>% 
-    sum()
- -(l1+l2)
-}
-
-theta <- seq(2e-4, 8e-4, 1e-6)
-opt_rate <- optimise(nll, c(1e-10, 1), data = act_data)
-
-c <- exp(-1/2*qchisq(1-alpha,1))
-to_be_plotted <- -(sapply(theta, nll, data = act_data) - opt_rate$objective)
-
-plot(theta, to_be_plotted, "l", main = "Standardized Log likelihood for rate parameter (expontial)", xlab = expression(lambda), ylab = "Log Likelihood")
-abline(h = log(c))
-abline(v = opt_rate$minimum)
-# MLE <- theta[sapply(theta, nll, data =  act_data) == min(sapply(theta, nll, data =  act_data))]
-# abline(v = MLE)
+# ```{r Exp fit - all data}
+# nll <- function(theta, data){
+#   l1 <- act_data %>% 
+#     filter(event == 1) %>% 
+#     pull(time) %>% 
+#     dexp(rate = theta, log = T)  %>% 
+#     sum()
+#   l2 <- act_data %>% 
+#     filter(event == 0) %>% 
+#     pull(time) %>% 
+#     (function (x) 1-pexp(x, rate = theta))() %>% 
+#     log() %>% 
+#     sum()
+#  -(l1+l2)
+# }
+# 
+# theta <- seq(2e-4, 8e-4, 1e-6)
+# opt_rate <- optimise(nll, c(1e-10, 1), data = act_data)
+# 
+# c <- exp(-1/2*qchisq(1-alpha,1))
+# to_be_plotted <- -(sapply(theta, nll, data = act_data) - opt_rate$objective)
+# 
+# plot(theta, to_be_plotted, "l", main = "Standardized Log likelihood for rate parameter (expontial)", xlab = expression(lambda), ylab = "Log Likelihood")
+# abline(h = log(c))
 # abline(v = opt_rate$minimum)
-
-```
+# # MLE <- theta[sapply(theta, nll, data =  act_data) == min(sapply(theta, nll, data =  act_data))]
+# # abline(v = MLE)
+# # abline(v = opt_rate$minimum)
+# 
+# ```
 ```{r}
 nll <- function(theta, data){
   time <- data$time
@@ -285,12 +285,9 @@ c <- -1/2 * qchisq(1-0.05, df = 1)
 abline(h = c)
 abline(v = opt$maximum)
 
-
-
-
-
-
 ```
+
+
 ```{r}
 opt0 <- optimize(nll, c(0,1), data = act_data %>% filter(tx == 0), maximum = T)
 opt1 <- optimize(nll, c(0,1), data = act_data %>% filter(tx == 1), maximum = T)
@@ -332,7 +329,7 @@ nll_combined <- function(theta, data){
 }
 
 # rate.2 <- optim(c(7, 10), nll, hessian = T)
-nlminb(c(0,0), nll_combined, lower = c(-Inf, -Inf), data = act_data)
+opt_bs <- nlminb(c(0,0), nll_combined, lower = c(-Inf, -Inf), data = act_data)
 
 nll_profile <- function(b1, data){
   nll_b0 <- function(b0, b1, data){
@@ -352,4 +349,22 @@ plot(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective , 'l', main 
 abline(h= c)
 abline(v = opt_b1$par)
 ```
+
+
+## Wald confidence interval
+
+The wald confidence interval can be calculated by 
+$$\hat{\theta} \pm z_{1-\alpha / 2} I^{-1 / 2}(\hat{\theta})$$
+where $\hat{\theta}$ is the MLE, z is a quantile in the standard normal distribution and I is the information
+
+```{r}
+CI_wald <- function(theta_hat, info){theta_hat+c(-1,1)*qnorm(1-0.05/2)*1/sqrt(info)}
+
+hess <- as.numeric(numDeriv::hessian(nll_combined, opt_bs$par, data = act_data))
+
+cat("95% wald confidence interval for b0 is: ", CI_wald(opt_bs$par[1], hess[1]))
+cat("\n95% wald confidence interval for b1 is: ", CI_wald(opt_bs$par[2], hess[4]))
+
+```
+
 
