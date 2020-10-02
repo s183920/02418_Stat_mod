@@ -310,6 +310,7 @@ cat("Confidence intervals for tx = 0:", CI_tx0, "\n")
 cat("confidence intervals for tx = 1:", CI_tx1)
 
 LR <- exp(opt0$objective - opt1$objective) # Might not be necessary - ignore this
+
 ```
 
 
