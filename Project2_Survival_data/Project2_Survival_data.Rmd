@@ -424,3 +424,18 @@ MLE_B1 = -(log(b/d2)+7.6203 )
 
 ```
 
+## Wald confidence interval
+
+The wald confidence interval can be calculated by 
+$$\hat{\theta} \pm z_{1-\alpha / 2} I^{-1 / 2}(\hat{\theta})$$
+where $\hat{\theta}$ is the MLE, z is a quantile in the standard normal distribution and I is the information
+
+```{r}
+CI_wald <- function(theta_hat, info){theta_hat+c(-1,1)*qnorm(1-0.05/2)*sqrt(1/info)}
+
+hess <- numDeriv::hessian(nll_combined, opt_bs$par, data = act_data)
+
+cat("95% wald confidence interval for b0 is: ", CI_wald(opt_bs$par[1], hess[1,1]))
+cat("\n95% wald confidence interval for b1 is: ", CI_wald(opt_bs$par[2], hess[2,2]))
+
+```

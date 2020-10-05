@@ -11,6 +11,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
 # Packages
 
 ```{r include=FALSE}
@@ -27,7 +28,7 @@ library(MASS)
 
 ## Load
 ```{r}
-wind_data <- read.table("../Data/tuno.txt", header = T, sep = " ")
+wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
 summary(wind_data)
 ```
 
@@ -40,19 +41,6 @@ pairplot
 ggsave("Plots/pairplot_wind.png", pairplot)
 ```
 
-### QQ-plots
-
-```{r}
-qqnorm(wind_data[pow.obs], ylim, main = "Normal Q-Q Plot",
-       xlab = "Theoretical Quantiles", ylab = "Sample Quantiles",
-       plot.it = TRUE, datax = FALSE)
-qqline(wind_data[1])
-
-plot(wind_data$r.day)
-wind_data$r.day %>% as.factor() %>%  density() %>% plot()
-```
-
-
 
 
 # Data transformations
@@ -63,7 +51,7 @@ wind_data$r.day %>% as.factor() %>%  density() %>% plot()
 
 
 ## profile likelihood for lambda
-lp.lambda <- function(lambda,y,func="boxcox"){
+lp.lambda <- function(lambda,y,func="boxcox",trans = FALSE){
   n <- length(y)
   
   if (func == "proposed1"){
@@ -81,9 +69,13 @@ lp.lambda <- function(lambda,y,func="boxcox"){
     y.l <- (y^lambda-1)/lambda
     if(lambda==0){y.l <- log(y)}
   }
+  
+  if (trans){
+    return(y.l)
+  }
 
   sigmasq <- 1/n * sum((y.l-mean(y.l))^2)
-  -n/2 * log(sigmasq) + (lambda-1)*sum(log(y))
+  return(-n/2 * log(sigmasq) + (lambda-1)*sum(log(y)))
 }
 
 bc.trans <- function(lambda,y){
@@ -92,12 +84,350 @@ bc.trans <- function(lambda,y){
   return(y.l)
 }
 
-datasets = cbind(wind_data$wd30, wind_data$pow.obs, wind_data$ws30)
-range = cbind(c(-3,3), c(0,1000), c(0,1))
+datasets = cbind(wind_data$wd30, wind_data$pow.obs, wind_data$d)
+range = cbind(c(-3,3), c(0,10000), c(0,1))
 funcs = c("boxcox", "proposed1", "proposed2")
 
-lp.lambda(0.8,datasets[,2], "boxcox")
 
+
+func = funcs[1]
+rang = range[,1]
+par(mfrow=c(3,3))
+for (i in c(1,2,3)){
+  
+  data = datasets[,i]/(max(datasets[,i])+0.01)
+  
+  
+  fit <- fitdistr(data, "normal")
+  para <- fit$estimate
+  hist(data, prob = TRUE,  breaks=20, main="Breaks=15")
+  x <- seq(min(data), max(data), length=1000)
+  curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+
+  
+  opt = optimize(lp.lambda, rang,y=data ,func = func, maximum=TRUE)$maximum
+  data = lp.lambda(opt, data, func=func ,trans = TRUE)
+  print(cat("opt lambda: ", opt))
+  qqnorm(data)
+  qqline(data)
+  
+  fit <- fitdistr(data, "normal")
+  aic = AIC(fit, k = 2)
+  print(cat("aic: ",format(aic)))
+  para <- fit$estimate
+  hist(data, prob = TRUE, breaks=10, main="Breaks=15")
+  curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+    
+  }
+
+
+```
+
+
+
+
+
+
+
+
+# Models
+
+```{r}
+
+#optimization over 2 parameters:
+func = dnorm
+dataset_idx = 3
+d = datasets[,dataset_idx]/(max(datasets[,dataset_idx])+0.01)
+hist(d)
+
+
+n = 200
+vars = seq(min(d),max(d),length.out=n)
+means = seq(min(d),max(d),length.out=n)
+opt_mean = 0
+opt_var = 0
+best_log_like = -Inf
+
+for (mean in means){
+  for (var in vars){
+    logl = sum(log(func(d,mean,var)))
+    #print(logl)
+    if (logl > best_log_like){
+      best_log_like = logl
+      opt_mean = mean
+      opt_var = var
+    }
+  }
+}
+
+
+
+print(paste("best value for the first parameter:",toString(opt_mean)))
+print(paste("best value for the second parameter:",toString(opt_var)))
+print(paste("MLE:",toString(best_log_like)))
+print(paste("AIC:", toString(-2*log(best_log_like)+2)))
+
+
+CI = function(plot_data,means){
+  counter = 0
+  threshold = 0.15
+  threshold_not_reached = TRUE
+  for (x in plot_data){
+    counter = counter + 1
+    
+    if (x>threshold & threshold_not_reached){
+      lower_idx = counter
+      threshold_not_reached = FALSE
+    }
+    if (x< threshold & threshold_not_reached == FALSE){
+      upper_idx = counter
+      break
+    }
+  }
+  return(c(means[lower_idx],means[upper_idx]))
+}
+
+
+
+par(mfrow=c(1,2))
+plot_data = c()
+for (mean in means){
+  plot_data = append(plot_data, sum(log(func(d,mean,opt_var))))
+}
+t_data = plot_data/max(plot_data)
+
+plot(means, plot_data,"l")
+lines(means, rep(1,n)*0.15,"l")
+
+CIs = CI(plot_data, means)
+print(paste("CI for the first paramter:",toString(CIs)))
+
+
+
+plot_data = c()
+for (var in vars){
+  plot_data = append(plot_data, sum(log(func(d,opt_mean,var))))
+}
+
+plot_data = plot_data/max(plot_data)
+
+plot(vars, plot_data,"l")
+lines(vars, rep(1,n)*0.15,"l")
+
+CIs = CI(plot_data, vars)
+print(paste("CI for the second paramter:",toString(CIs)))
+
+
+
+```
+
+
+
+```{r}
+install.packages("fitdistrplus")
+library(fitdistrplus)
+datasets = cbind(wind_data$wd30, wind_data$pow.obs, wind_data$ws30)
+```
+## gamma
+
+```{r}
+
+par(mfrow=c(3,2))
+for (i in c(1,2,3)){
+  d = datasets[,i]/(max(datasets[,i])+0.01)
+  x <- seq(0, 1, length=100)
+    
+  fit = (fitdist(d,dgamma))
+  ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
+  ci_param2 = append(c(fit$estimate[2]), fit$sd[2]*c(-1,1)*1.96+fit$estimate[2])
+  print(paste("AIC:",toString(fit$aic)))
+  print(paste("param1 + CI:",toString(ci_param1)))
+  print(paste("param2 + CI:",toString(ci_param2)))
+  
+#  statistic = function(x, indx){
+#    fitdist(x[indx], dbeta)$estimates
+#  }
+#  bs = boot(d, statistic, R = 100)
+#  print(paste("bootstrap conf is:", toString(boot.ci(bs, conf=0.95, type = "bca"))))
+  
+  
+  
+  
+  
+  #View(llplot)
+  llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
+
+  para <- fit$estimate
+  hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
+  curve(dgamma(x, para[1], para[2]), col = 2, add = TRUE)
+  }
+```
+
+
+
+exponential
+```{r}
+
+par(mfrow=c(3,2))
+for (i in c(1,2,3)){
+  d = datasets[,i]/(max(datasets[,i])+0.01)
+  x <- seq(0, 1, length=100)
+    
+  fit = (fitdist(d,dexp))
+  ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
+  print(paste("AIC:",toString(fit$aic)))
+  print(paste("param1 + CI:",toString(ci_param1)))
+  #View(llplot)
+  llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
+
+  para <- fit$estimate
+  hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
+  curve(dexp(x, para[1]), col = 2, add = TRUE)
+  }
+```
+normal
+```{r}
+par(mfrow=c(3,2))
+for (i in c(1,2,3)){
+  d = datasets[,i]/(max(datasets[,i])+0.01)
+  x <- seq(0, 1, length=100)
+  
+  fit = (fitdist(d,dnorm))
+  ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
+  ci_param2 = append(c(fit$estimate[2]), fit$sd[2]*c(-1,1)*1.96+fit$estimate[2])
+  print(paste("AIC:",toString(fit$aic)))
+  print(paste("param1 + CI:",toString(ci_param1)))
+  print(paste("param2 + CI:",toString(ci_param2)))
+  
+#  statistic = function(x, indx){
+#    fitdist(x[indx], dlnorm)$estimates
+#  }
+#  bs = boot(d, statistic, R = 100)
+#  print(paste("bootstrap conf is:", toString(boot.ci(bs, conf=0.95, type = "bca"))))
+
+  #View(llplot)
+  llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
+
+  para <- fit$estimate
+  hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
+  curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+  }
+```
+
+
+
+
+Log normal
+```{r}
+par(mfrow=c(3,2))
+for (i in c(1,2,3)){
+  d = datasets[,i]/(max(datasets[,i])+0.01)
+  x <- seq(0, 1, length=100)
+  
+  fit = (fitdist(d,dlnorm))
+  ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
+  ci_param2 = append(c(fit$estimate[2]), fit$sd[2]*c(-1,1)*1.96+fit$estimate[2])
+  print(paste("AIC:",toString(fit$aic)))
+  print(paste("param1 + CI:",toString(ci_param1)))
+  print(paste("param2 + CI:",toString(ci_param2)))
+  
+#  statistic = function(x, indx){
+#    fitdist(x[indx], dlnorm)$estimates
+#  }
+#  bs = boot(d, statistic, R = 100)
+#  print(paste("bootstrap conf is:", toString(boot.ci(bs, conf=0.95, type = "bca"))))
+
+  #View(llplot)
+  llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
+
+  para <- fit$estimate
+  hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
+  curve(dlnorm(x, para[1], para[2]), col = 2, add = TRUE)
+  }
+```
+
+
+beta  
+```{r}
+
+par(mfrow=c(3,2))
+for (i in c(1,2,3)){
+  d = datasets[,i]/(max(datasets[,i])+0.01)
+  x <- seq(0, 1, length=100)
+    
+  fit = (fitdist(d,dbeta))
+  ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
+  ci_param2 = append(c(fit$estimate[2]), fit$sd[2]*c(-1,1)*1.96+fit$estimate[2])
+  print(paste("AIC:",toString(fit$aic)))
+  print(paste("param1 + CI:",toString(ci_param1)))
+  print(paste("param2 + CI:",toString(ci_param2)))
+  
+#  statistic = function(x, indx){
+#    fitdist(x[indx], dbeta)$estimates
+#  }
+#  bs = boot(d, statistic, R = 100)
+#  print(paste("bootstrap conf is:", toString(boot.ci(bs, conf=0.95, type = "bca"))))
+  
+  
+  
+  
+  
+  #View(llplot)
+  llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
+
+  para <- fit$estimate
+  hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
+  curve(dbeta(x, para[1], para[2]), col = 2, add = TRUE)
+  }
+```
+
+
+
+
+## Von Mises distribution
+```{r}
+
+all_models = c("beta", "cauchy", "chi-squared", "exponential", "gamma", "geometric", "log-normal", "lognormal", "logistic", "negative binomial", "normal", "Poisson", "t", "weibull")
+
+
+models = c( "beta", "gamma", "lognormal", "normal")
+
+
+fit <- fitdistr(datasets[,2]/max(datasets[,2]), "beta", start = list(shape1 = 3, shape2 = 5) ) 
+fit = (fitdistr(x,"beta", start = list(shape1 = 2, shape2 = 5)))
+
+d = datasets[,1]/(max(datasets[,1])+1)
+fit = (fitdist(d,"gamma"))
+para <- fit$estimate
+AIC(fit)
+hist(d, prob = TRUE)
+x <- seq(0, 1, length=100)
+curve(dgamma(x, para[1], para[2]), col = 2, add = TRUE)
+print(AIC(fit))
+
+plot(x)
+fit
+?fitdistr()
+
+for (model in models){
+  fit <- fitdistr(datasets[,3], model)
+  aic = AIC(fit, k = 2)
+  print(model)
+  print(aic)
+  # para <- fit$estimate
+  # hist(datasets[,3], prob = TRUE, title = as.character(aic))
+  # x <- seq(5, 15, length=1000)
+  # curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
+}
+library("fitdistrplus")
+install.packages("fitdistrplus")
+## Multimodal distribution
+
+```
+
+
+## overskydende
+```{r}
 
 par(mfrow=c(3,3))
 opt = optimize(lp.lambda, range[,1],y=datasets[,1], maximum=TRUE)$maximum
@@ -161,20 +491,9 @@ curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
 
 
 
-
-
-# par(mfrow=c(3,3))
-# for (i in c(1,3)){
-#   for (j in c(1,2,3)){
-#     opt = optimize(lp.lambda,range[,i],y=datasets[,j], func=funcs[i], maximum=TRUE)$maximum
-#     qqnorm(bc.trans(opt, datasets[,j]))
-#     qqline(bc.trans(opt, datasets[,j]))
-# 
-#   }
-# }
-
-
 ```
+
+
 
 
 
