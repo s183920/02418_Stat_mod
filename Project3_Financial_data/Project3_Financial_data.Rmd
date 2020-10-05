@@ -131,7 +131,11 @@ for (i in 1:length(loc)){
 }
 normalised_LL <-  p_norm_profile-opt_norm$objective
 plot(loc,normalised_LL, 'l', main = "Normalised Log likelihodd", xlab = "Location parameter", ylab = "Log likelihodd")
-plot(loc, exp(normalised_LL), 'l',  main = "Normalised likelihodd", xlab = "Location parameter", ylab = "Likelihodd")
+#plot(loc, exp(normalised_LL), 'l',  main = "Normalised likelihodd", xlab = "Location parameter", ylab = "Likelihodd")
+library(numDeriv)
+I = -hessian(profile_mu_normal, opt_norm$maximum, data = y)
+lines(loc,-0.5*I*(loc-opt_norm$maximum)^2, lty = 'dotted')
+wald <- opt_norm$maximum + c(-1,1) * qnorm(1-alpha/2) * sqrt(1/I)
 ```
 
 Looking at the QQ plot, we see to much noise in the ends of the data. With this many datapoints, we cannot deem this model appropriate when the tails deviate this much from the QQline. We must therefore look at another model.
@@ -221,7 +225,7 @@ for (i in 1:length(df)){
 }
 
 maximum <- df[result == max(result)]
-plot(df, result, main = "Log likelikhood as a function of degrees of freedom", xlab = "Degrees of freedom", ylab = "Log likelihood")
+plot(df, result, main = "Profile likelihood of freedom", xlab = "Degrees of freedom", ylab = "Log likelihood")
 cat("The maximum of the profile likelihood of df is found at", maximum, "degrees of freedom")
 
 opt_max <- nlminb(c(0,0.000001), t_dist_Profile, lower = c(-Inf, 0.000001), data = y, df = maximum)
