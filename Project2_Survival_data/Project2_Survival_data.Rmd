@@ -477,14 +477,16 @@ c <- -1/2*qchisq(1-alpha,1)
 
 opt_b1 <- nlminb(c(0), nll_profile, lower = c(-Inf), data = act_data)
 b1 <- seq(0,2, 0.01)
-# png("Plots/beta1_pl_numerical.png") # start saving
-plot(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective , 'l', main = expression(paste("Profile likelihood for ", beta[1])), ylab = "Log-likelihood", xlab = expression(beta[1]))
-plot(b1, sapply(b1, quad_log), "l", col = "blue")
-abline(h= c, col = "red")
+png("Plots/beta1_pl.png") # start saving
+col1 <- "#E06548"
+col2 <- "#537BE0"
+plot(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective , 'l', main = expression(paste("Profile likelihood for ", beta[1])), ylab = "Log-likelihood", xlab = expression(beta[1]), col = col1)
+lines(b1, sapply(b1, quad_log), col = col2)
+abline(h= c, col = col1)
 abline(v = opt_b1$par)
-abline(h = -nll_profile(CI_wald(opt_bs$par[2], hess[2,2]), data = act_data)[1]+opt_b1$objective, col = "green")
-legend("bottomright",legend = c("numerical CI", "Wald CI"), fill = c("red", "green"))
-# dev.off() #stop saving
+abline(h = -nll_profile(CI_wald(opt_bs$par[2], hess[2,2]), data = act_data)[1]+opt_b1$objective, col = col2)
+legend("bottomright",legend = c("Numerical", "Wald"), fill = c(col1, col2))
+dev.off() #stop saving
 -nll_profile(CI_wald(opt_bs$par[2], hess[2,2]), data = act_data)[1]+opt_b1$objective
 ```
 
