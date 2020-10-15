@@ -30,6 +30,12 @@ library(MASS)
 ```{r}
 wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
 summary(wind_data)
+var(wind_data$pow.obs)
+var(wind_data$ws30)
+var(wind_data$wd30)
+
+require(ggplot2)
+ggplot(data = wind_data, aes(x=wd30, y=pow.obs)) + geom_boxplot(aes(fill=Label))
 ```
 
 ## Plot
@@ -51,7 +57,7 @@ ggsave("Plots/pairplot_wind.png", pairplot)
 
 
 ## profile likelihood for lambda
-lp.lambda <- function(lambda,y,func="boxcox",trans = FALSE){
+lp.lambda <- function(lambda,y,func,trans = FALSE){
   n <- length(y)
   
   if (func == "proposed1"){
@@ -64,7 +70,7 @@ lp.lambda <- function(lambda,y,func="boxcox",trans = FALSE){
     y.l <- 2*log(y^lambda/(1-y)^(1-lambda))
   }
   
-  else{
+  if (func == "boxcox"){
     #print("boxcox 1")
     y.l <- (y^lambda-1)/lambda
     if(lambda==0){y.l <- log(y)}
@@ -78,13 +84,8 @@ lp.lambda <- function(lambda,y,func="boxcox",trans = FALSE){
   return(-n/2 * log(sigmasq) + (lambda-1)*sum(log(y)))
 }
 
-bc.trans <- function(lambda,y){
-  y.l <- (y^lambda-1)/lambda
-  if(lambda==0){y.l <- log(y)}
-  return(y.l)
-}
 
-datasets = cbind(wind_data$wd30, wind_data$pow.obs, wind_data$d)
+datasets = cbind(wind_data$pow.obs, wind_data$ws30, wind_data$wd30)
 range = cbind(c(-3,3), c(0,10000), c(0,1))
 funcs = c("boxcox", "proposed1", "proposed2")
 
@@ -92,30 +93,33 @@ funcs = c("boxcox", "proposed1", "proposed2")
 
 func = funcs[1]
 rang = range[,1]
-par(mfrow=c(3,3))
+par(mfrow=c(3,4))
 for (i in c(1,2,3)){
   
-  data = datasets[,i]/(max(datasets[,i])+0.01)
+  data = datasets[,i]#/(max(datasets[,i])+0.01)
   
-  
+  qqnorm(data)
+  qqline(data)
   fit <- fitdistr(data, "normal")
   para <- fit$estimate
-  hist(data, prob = TRUE,  breaks=20, main="Breaks=15")
+  hist(data, prob = TRUE,  breaks=15, main="")
   x <- seq(min(data), max(data), length=1000)
   curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
 
   
   opt = optimize(lp.lambda, rang,y=data ,func = func, maximum=TRUE)$maximum
   data = lp.lambda(opt, data, func=func ,trans = TRUE)
-  print(cat("opt lambda: ", opt))
+  data = data / max(data+0.01)
+  print(paste("opt lambda: ", toString(opt)))
   qqnorm(data)
   qqline(data)
   
   fit <- fitdistr(data, "normal")
   aic = AIC(fit, k = 2)
-  print(cat("aic: ",format(aic)))
+  print(paste("aic: ",toString(format(aic))))
   para <- fit$estimate
-  hist(data, prob = TRUE, breaks=10, main="Breaks=15")
+  x <- seq(min(data), max(data), length=1000)
+  hist(data, prob = TRUE, breaks=15, main="")
   curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
     
   }
@@ -136,14 +140,14 @@ for (i in c(1,2,3)){
 
 #optimization over 2 parameters:
 func = dnorm
-dataset_idx = 3
+dataset_idx = 2
 d = datasets[,dataset_idx]/(max(datasets[,dataset_idx])+0.01)
 hist(d)
 
 
 n = 200
-vars = seq(min(d),max(d),length.out=n)
-means = seq(min(d),max(d),length.out=n)
+vars = seq(min(d),max(d)+10,length.out=n)
+means = seq(min(d-10),max(d)+10,length.out=n)
 opt_mean = 0
 opt_var = 0
 best_log_like = -Inf
@@ -199,8 +203,8 @@ t_data = plot_data/max(plot_data)
 plot(means, plot_data,"l")
 lines(means, rep(1,n)*0.15,"l")
 
-CIs = CI(plot_data, means)
-print(paste("CI for the first paramter:",toString(CIs)))
+#CIs = CI(plot_data, means)
+#print(paste("CI for the first paramter:",toString(CIs)))
 
 
 
@@ -214,8 +218,8 @@ plot_data = plot_data/max(plot_data)
 plot(vars, plot_data,"l")
 lines(vars, rep(1,n)*0.15,"l")
 
-CIs = CI(plot_data, vars)
-print(paste("CI for the second paramter:",toString(CIs)))
+#CIs = CI(plot_data, vars)
+#print(paste("CI for the second paramter:",toString(CIs)))
 
 
 
@@ -224,40 +228,63 @@ print(paste("CI for the second paramter:",toString(CIs)))
 
 
 ```{r}
-install.packages("fitdistrplus")
+#install.packages("fitdistrplus")
+#install.packages("gdata")
 library(fitdistrplus)
-datasets = cbind(wind_data$wd30, wind_data$pow.obs, wind_data$ws30)
+library(gdata)
+
+datasets = cbind(wind_data$pow.obs, wind_data$ws30, wind_data$wd30)
 ```
 ## gamma
 
 ```{r}
 
+bootstrap = FALSE
+two_param_BS = TRUE
+n = 1000
+
 par(mfrow=c(3,2))
 for (i in c(1,2,3)){
+  print(" ", quote= FALSE)
   d = datasets[,i]/(max(datasets[,i])+0.01)
   x <- seq(0, 1, length=100)
     
   fit = (fitdist(d,dgamma))
+  para <- fit$estimate
   ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
   ci_param2 = append(c(fit$estimate[2]), fit$sd[2]*c(-1,1)*1.96+fit$estimate[2])
   print(paste("AIC:",toString(fit$aic)))
   print(paste("param1 + CI:",toString(ci_param1)))
   print(paste("param2 + CI:",toString(ci_param2)))
   
-#  statistic = function(x, indx){
-#    fitdist(x[indx], dbeta)$estimates
-#  }
-#  bs = boot(d, statistic, R = 100)
-#  print(paste("bootstrap conf is:", toString(boot.ci(bs, conf=0.95, type = "bca"))))
-  
-  
-  
-  
+  #bootstrap
+  #########################################################################
+  if (bootstrap){
+    boot_strap_param1 = c()
+    boot_strap_param2 = c()
+    for (i in c(1:n)){
+      #print(i)
+      resampled = resample(d, length(d), replace = TRUE, prob = NULL)
+      fit = suppressWarnings((fitdist(resampled, dbeta)))
+      boot_strap_param1 = append(boot_strap_param1, fit$estimate[1])
+        if (two_param_BS){
+          boot_strap_param2 = append(boot_strap_param2, fit$estimate[2])
+        }
+      }
+    print("bootstrapped param 1 and CI:")
+    print((toString(append(c(mean(boot_strap_param1)),
+                           quantile(boot_strap_param1, c(0.025, 0.975))))))
+    if (two_param_BS){
+      print("bootstrapped param 2 and CI:")
+      print((toString(append(c(mean(boot_strap_param2)),
+                             quantile(boot_strap_param2, c(0.025, 0.975))))))
+    }
+  }
+  ########################################################################
   
   #View(llplot)
   llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
 
-  para <- fit$estimate
   hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
   curve(dgamma(x, para[1], para[2]), col = 2, add = TRUE)
   }
@@ -265,7 +292,8 @@ for (i in c(1,2,3)){
 
 
 
-exponential
+
+pois, not working! (wonder why; possion is for discrete data :/ )
 ```{r}
 
 par(mfrow=c(3,2))
@@ -273,7 +301,7 @@ for (i in c(1,2,3)){
   d = datasets[,i]/(max(datasets[,i])+0.01)
   x <- seq(0, 1, length=100)
     
-  fit = (fitdist(d,dexp))
+  fit = (fitdistr(d,"poisson"))
   ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
   print(paste("AIC:",toString(fit$aic)))
   print(paste("param1 + CI:",toString(ci_param1)))
@@ -282,22 +310,57 @@ for (i in c(1,2,3)){
 
   para <- fit$estimate
   hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
-  curve(dexp(x, para[1]), col = 2, add = TRUE)
+  curve(dpois(x, para[1]), col = 2, add = TRUE)
   }
 ```
+
+
+
 normal
 ```{r}
+bootstrap = FALSE
+two_param_BS = TRUE
+n = 1000
+
+
 par(mfrow=c(3,2))
 for (i in c(1,2,3)){
+  print(" ", quote= FALSE)
   d = datasets[,i]/(max(datasets[,i])+0.01)
   x <- seq(0, 1, length=100)
   
   fit = (fitdist(d,dnorm))
+  para <- fit$estimate
   ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
   ci_param2 = append(c(fit$estimate[2]), fit$sd[2]*c(-1,1)*1.96+fit$estimate[2])
   print(paste("AIC:",toString(fit$aic)))
   print(paste("param1 + CI:",toString(ci_param1)))
   print(paste("param2 + CI:",toString(ci_param2)))
+  
+  #bootstrap
+  #########################################################################
+  if (bootstrap){
+    boot_strap_param1 = c()
+    boot_strap_param2 = c()
+    for (i in c(1:n)){
+      #print(i)
+      resampled = resample(d, length(d), replace = TRUE, prob = NULL)
+      fit = suppressWarnings((fitdist(resampled, dbeta)))
+      boot_strap_param1 = append(boot_strap_param1, fit$estimate[1])
+        if (two_param_BS){
+          boot_strap_param2 = append(boot_strap_param2, fit$estimate[2])
+        }
+      }
+    print("bootstrapped param 1 and CI:")
+    print((toString(append(c(mean(boot_strap_param1)),
+                           quantile(boot_strap_param1, c(0.025, 0.975))))))
+    if (two_param_BS){
+      print("bootstrapped param 2 and CI:")
+      print((toString(append(c(mean(boot_strap_param2)),
+                             quantile(boot_strap_param2, c(0.025, 0.975))))))
+    }
+  }
+  ########################################################################
   
 #  statistic = function(x, indx){
 #    fitdist(x[indx], dlnorm)$estimates
@@ -307,8 +370,6 @@ for (i in c(1,2,3)){
 
   #View(llplot)
   llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
-
-  para <- fit$estimate
   hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
   curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
   }
@@ -319,17 +380,49 @@ for (i in c(1,2,3)){
 
 Log normal
 ```{r}
+bootstrap = FALSE
+two_param_BS = TRUE
+n = 1000
+
 par(mfrow=c(3,2))
 for (i in c(1,2,3)){
+  print(" ", quote= FALSE)
   d = datasets[,i]/(max(datasets[,i])+0.01)
   x <- seq(0, 1, length=100)
   
   fit = (fitdist(d,dlnorm))
+  para <- fit$estimate
   ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
   ci_param2 = append(c(fit$estimate[2]), fit$sd[2]*c(-1,1)*1.96+fit$estimate[2])
   print(paste("AIC:",toString(fit$aic)))
   print(paste("param1 + CI:",toString(ci_param1)))
   print(paste("param2 + CI:",toString(ci_param2)))
+  
+  #bootstrap
+  #########################################################################
+  if (bootstrap){
+    boot_strap_param1 = c()
+    boot_strap_param2 = c()
+    for (i in c(1:n)){
+      #print(i)
+      resampled = resample(d, length(d), replace = TRUE, prob = NULL)
+      fit = suppressWarnings((fitdist(resampled, dbeta)))
+      boot_strap_param1 = append(boot_strap_param1, fit$estimate[1])
+        if (two_param_BS){
+          boot_strap_param2 = append(boot_strap_param2, fit$estimate[2])
+        }
+      }
+    print("bootstrapped param 1 and CI:")
+    print((toString(append(c(mean(boot_strap_param1)),
+                           quantile(boot_strap_param1, c(0.025, 0.975))))))
+    if (two_param_BS){
+      print("bootstrapped param 2 and CI:")
+      print((toString(append(c(mean(boot_strap_param2)),
+                             quantile(boot_strap_param2, c(0.025, 0.975))))))
+    }
+  }
+  ########################################################################
+  
   
 #  statistic = function(x, indx){
 #    fitdist(x[indx], dlnorm)$estimates
@@ -340,7 +433,6 @@ for (i in c(1,2,3)){
   #View(llplot)
   llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
 
-  para <- fit$estimate
   hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
   curve(dlnorm(x, para[1], para[2]), col = 2, add = TRUE)
   }
@@ -349,24 +441,49 @@ for (i in c(1,2,3)){
 
 beta  
 ```{r}
+bootstrap = FALSE
+two_param_BS = TRUE
+n = 1000
+
 
 par(mfrow=c(3,2))
 for (i in c(1,2,3)){
+  print(" ", quote = FALSE)
   d = datasets[,i]/(max(datasets[,i])+0.01)
   x <- seq(0, 1, length=100)
     
-  fit = (fitdist(d,dbeta))
+  fit = suppressWarnings((fitdist(d,dbeta)))
+  para <- fit$estimate
   ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
   ci_param2 = append(c(fit$estimate[2]), fit$sd[2]*c(-1,1)*1.96+fit$estimate[2])
   print(paste("AIC:",toString(fit$aic)))
   print(paste("param1 + CI:",toString(ci_param1)))
   print(paste("param2 + CI:",toString(ci_param2)))
   
-#  statistic = function(x, indx){
-#    fitdist(x[indx], dbeta)$estimates
-#  }
-#  bs = boot(d, statistic, R = 100)
-#  print(paste("bootstrap conf is:", toString(boot.ci(bs, conf=0.95, type = "bca"))))
+  #bootstrap
+  #########################################################################
+  if (bootstrap){
+    boot_strap_param1 = c()
+    boot_strap_param2 = c()
+    for (i in c(1:n)){
+      #print(i)
+      resampled = resample(d, length(d), replace = TRUE, prob = NULL)
+      fit = suppressWarnings((fitdist(resampled, dbeta)))
+      boot_strap_param1 = append(boot_strap_param1, fit$estimate[1])
+        if (two_param_BS){
+          boot_strap_param2 = append(boot_strap_param2, fit$estimate[2])
+        }
+      }
+    print("bootstrapped param 1 and CI:")
+    print((toString(append(c(mean(boot_strap_param1)),
+                           quantile(boot_strap_param1, c(0.025, 0.975))))))
+    if (two_param_BS){
+      print("bootstrapped param 2 and CI:")
+      print((toString(append(c(mean(boot_strap_param2)),
+                             quantile(boot_strap_param2, c(0.025, 0.975))))))
+    }
+  }
+  ########################################################################
   
   
   
@@ -374,12 +491,89 @@ for (i in c(1,2,3)){
   
   #View(llplot)
   llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
-
-  para <- fit$estimate
   hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
   curve(dbeta(x, para[1], para[2]), col = 2, add = TRUE)
   }
 ```
+
+
+exponential now with bootstrap fucntion, not working : /
+```{r}
+# as func but not working for some reason : /
+bootstrap = function(n=200, d, dist_ = dpois, two_param_BS = FALSE){
+  two_param_BS = TRUE
+  boot_strap_param1 = c()
+  boot_strap_param2 = c()
+  for (i in c(1:n)){
+    #print(i)
+    resampled = resample(d, length(d), replace = TRUE, prob = NULL)
+    fit = suppressWarnings((fitdist(resampled, dist_)))
+    boot_strap_param1 = append(boot_strap_param, fit$estimate[1])
+      if (two_param_BS){
+        boot_strap_param2 = append(boot_strap_param2, fit$estimate[2])
+      }
+    }
+  print("bootstrapped param 1 and CI:")
+  print((toString(append(c(mean(boot_strap_param1)),
+                         quantile(boot_strap_param1, c(0.025, 0.975))))))
+  if (two_param_BS){
+    boot_strap_param1 = append(boot_strap_param, fit$estimate[2])
+    print("bootstrapped param 2 and CI:")
+    print((toString(append(c(mean(boot_strap_param2)),
+                           quantile(boot_strap_param2, c(0.025, 0.975))))))
+  }
+}
+
+bootstrap = FALSE
+two_param_BS = FALSE
+n = 1000
+
+par(mfrow=c(3,2))
+for (i in c(1,2,3)){
+  print(" ", quote= FALSE)
+  d = datasets[,i]/(max(datasets[,i])+0.01)
+  x <- seq(0, 1, length=100)
+
+  fit = suppressWarnings((fitdist(d,dexp)))
+  para <- fit$estimate
+  ci_param1 = append(c(fit$estimate[1]), fit$sd[1]*c(-1,1)*1.96+fit$estimate[1])
+  print(paste("AIC:",toString(fit$aic)))
+  print(paste("param1 + CI:",toString(ci_param1)))
+  
+  #bootstrap
+  #########################################################################
+  if (bootstrap){
+    boot_strap_param1 = c()
+    boot_strap_param2 = c()
+    for (i in c(1:n)){
+      #print(i)
+      resampled = resample(d, length(d), replace = TRUE, prob = NULL)
+      fit = suppressWarnings((fitdist(resampled, dbeta)))
+      boot_strap_param1 = append(boot_strap_param1, fit$estimate[1])
+        if (two_param_BS){
+          boot_strap_param2 = append(boot_strap_param2, fit$estimate[2])
+        }
+      }
+    print("bootstrapped param 1 and CI:")
+    print((toString(append(c(mean(boot_strap_param1)),
+                           quantile(boot_strap_param1, c(0.025, 0.975))))))
+    if (two_param_BS){
+      print("bootstrapped param 2 and CI:")
+      print((toString(append(c(mean(boot_strap_param2)),
+                             quantile(boot_strap_param2, c(0.025, 0.975))))))
+    }
+  }
+  ########################################################################
+  
+  
+  #View(llplot)
+  llplot(fit, col = "red", fit.show = TRUE, loglik = FALSE)
+  hist(d, prob = TRUE,  breaks=20, main="Breaks=15")
+  curve(dexp(x, para[1]), col = 2, add = TRUE)
+  }
+```
+
+
 
 
 
@@ -492,67 +686,6 @@ curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
 
 
 ```
-
-
-
-
-
-
-## Log-transformation
-```{r}
-#Log
-```
-
-
-
-# Models
-
-
-## Normal distribution
-```{r}
-
-
-all_models = c("beta", "cauchy", "chi-squared", "exponential", "gamma", "geometric", "log-normal", "lognormal", "logistic", "negative binomial", "normal", "Poisson", "t", "weibull")
-
-
-models = c( "beta", "gamma", "lognormal", "normal")
-
-
-fit <- fitdistrplus(datasets[,3], beta, )
-
-for (model in models){
-  fit <- fitdistr(datasets[,3], model)
-  aic = AIC(fit, k = 2)
-  print(model)
-  print(aic)
-  # para <- fit$estimate
-  # hist(datasets[,3], prob = TRUE, title = as.character(aic))
-  # x <- seq(5, 15, length=1000)
-  # curve(dnorm(x, para[1], para[2]), col = 2, add = TRUE)
-}
-library(CRAN)
-## Multimodal distribution
-```
-
-```
-
-
-## Von Mises distribution
-```{r}
-?fitdistr()
-
-```
-
-
-## Gamma distribution 
-```{r}
-
-```
-
-
-
-
-
 
 
 
