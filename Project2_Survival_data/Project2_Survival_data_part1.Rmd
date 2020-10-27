@@ -1,5 +1,5 @@
 ---
-title: 'Project2: Survival data'
+title: 'Project2: Survival data part 1'
 output:
   html_document:
     theme: united
