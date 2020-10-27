@@ -1,0 +1,38 @@
+---
+title: 'Project2: Survival data part 2'
+output:
+  html_document:
+    theme: united
+    toc: yes
+    toc_collapsed: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<!-- # Packages -->
+
+```{r Packages, include=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(magrittr)
+```
+
+
+# Data
+
+## Load
+```{r Data load}
+act_data <- read.delim("../Data/actg320.txt", header = T, sep = "\t")
+log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t") %>% 
+  bind_rows(data.frame(AZT = "Total", AIDS_yes = sum(.$AIDS_yes), n= sum(.$n)))
+
+```

@@ -1,5 +1,5 @@
 ---
-title: 'Project2: Survival data'
+title: 'Project2: Survival data part 1'
 output:
   html_document:
     theme: united
@@ -263,14 +263,15 @@ opt_rate <- optimise(nll, c(1e-10, 1), data = act_data)
 c <- exp(-1/2*qchisq(1-alpha,1))
 to_be_plotted <- -(sapply(theta, nll, data = act_data) - opt_rate$objective)
 
-plot(theta, to_be_plotted, "l", main = "Standardized Log likelihood for rate parameter (expontial)", xlab = expression(lambda), ylab = "Log Likelihood")
-abline(h = log(c))
-abline(v = opt_rate$minimum)
-# MLE <- theta[sapply(theta, nll, data =  act_data) == min(sapply(theta, nll, data =  act_data))]
-# abline(v = MLE)
+# plot(theta, to_be_plotted, "l", main = "Standardized Log likelihood for rate parameter (expontial)", xlab = expression(lambda), ylab = "Log Likelihood")
+# abline(h = log(c))
 # abline(v = opt_rate$minimum)
+# # MLE <- theta[sapply(theta, nll, data =  act_data) == min(sapply(theta, nll, data =  act_data))]
+# # abline(v = MLE)
+# # abline(v = opt_rate$minimum)
 
 ```
+
 ```{r}
 nll <- function(theta, data){
   time <- data$time
@@ -281,13 +282,22 @@ nll <- function(theta, data){
 
 opt <- optimize(nll, c(1e-10, 1e-1), data = act_data, maximum = T)
 theta <- seq(2e-4,6e-4, 1e-5)
-plot(theta, sapply(theta, nll, data = act_data) - opt$objective, 'l', ylab = "Log likelihood", main = "All data")
+
+jpeg(file="Plots/surv_all_data_log_like.jpeg") # start saving
+
+plot(theta, sapply(theta, nll, data = act_data) - opt$objective, 'l', ylab = "Log likelihood", main = expression(paste("Log-likelihood for ", theta, " using all the data")), xlab = expression(theta))
 c_l <- -1/2 * qchisq(1-0.05, df = 1)
 abline(h = c_l)
 abline(v = opt$maximum)
 
+dev.off() # stop saving
+
+CI_array <- theta[sapply(theta, nll, data = act_data) - opt$objective > c_l]
+cat("The MLE is ", opt$maximum, " and the CI goes from ", min(CI_array), " to ", max(CI_array))
 
 
+
+# nll(theta, act_data) - opt$objective
 
 
 
@@ -299,21 +309,27 @@ abline(v = opt$maximum)
 opt0 <- optimize(nll, c(0,1), data = act_data %>% filter(tx == 0), maximum = T)
 opt1 <- optimize(nll, c(0,1), data = act_data %>% filter(tx == 1), maximum = T)
 theta <- seq(1e-4,7e-4, 1e-6)
-plot(theta, nll(theta, act_data %>%  filter(tx == 0)) - opt0$objective, 'l', main = "Test for difference in rate in the 2 groups", ylab = "Log likelihood", ylim = c(-10,0))
+
+png(filename = "Plots/surv_by_treatment_log_like.png") # start saving
+plot(theta, nll(theta, act_data %>%  filter(tx == 0)) - opt0$objective, 'l', main = expression(paste("Log-likelihood for ", theta, " in the two treatment groups")), ylab = "Log likelihood",xlab = expression(theta), ylim = c(-10,0))
 lines(theta, nll(theta, act_data %>%  filter(tx == 1)) - opt1$objective, 'l', col = 'red')
 legend("bottomright",legend = c("tx = 0", "tx = 1"), fill = c("black", "red"))
 abline(h = c_l)
+abline(v = opt0$maximum)
+abline(v = opt1$maximum)
+dev.off() # stop saving
 
-CI_tx0_array <- theta[nll(theta, act_data %>% filter(tx == 0)) - opt0$objective > c]
+CI_tx0_array <- theta[sapply(theta, nll, data = act_data %>% filter(tx == 0)) - opt0$objective > c_l]
 CI_tx0 <- c(min(CI_tx0_array), max(CI_tx0_array))
 
-CI_tx1_array <- theta[nll(theta, act_data %>% filter(tx == 1)) - opt1$objective > c]
+CI_tx1_array <- theta[sapply(theta, nll, data = act_data %>% filter(tx == 1)) - opt1$objective > c_l]
 CI_tx1 <- c(min(CI_tx1_array), max(CI_tx1_array))
 
-cat("Confidence intervals for tx = 0:", CI_tx0, "\n")
-cat("confidence intervals for tx = 1:", CI_tx1)
+scale <- 1e4
+cat("The MLE for tx = 0 is ", opt0$maximum*scale, " with confidence interval:", CI_tx0*scale, "\n")
+cat("The MLE for tx = 1 is ", opt1$maximum*scale, " with confidence interval:", CI_tx1*scale, "\n")
 
-LR <- exp(opt0$objective - opt1$objective) # Might not be necessary - ignore this
+# LR <- exp(opt0$objective - opt1$objective) # Might not be necessary - ignore this
 
 ```
 
@@ -361,11 +377,21 @@ nll_profile <- function(b1, data){
   
   nll_b0(b0,b1,data)
 }
+
+c <- -1/2*qchisq(1-alpha,1)
+
 opt_b1 <- nlminb(c(0), nll_profile, lower = c(-Inf), data = act_data)
-b1 <- seq(0,2, 0.1)
-plot(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective , 'l', main = "Profile likelihood for b1", ylab = "log likelihood")
-abline(h= c_l)
+b1 <- seq(0,2, 0.01)
+png("Plots/beta1_pl_numerical.png") # start saving
+plot(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective , 'l', main = expression(paste("Profile likelihood for ", beta[1])), ylab = "Log-likelihood", xlab = expression(beta[1]))
+abline(h= c)
 abline(v = opt_b1$par)
+dev.off() #stop saving
+
+CI_array_b1 <- b1[-sapply(b1, nll_profile, data = act_data)+opt_b1$objective > c]
+cat("The MLE of b1 is ", opt_b1$par, " and the CI is: [", min(CI_array_b1), ",", max(CI_array_b1), "]")
+
+
 
 d = act_data$event
 t = act_data$tx
@@ -450,6 +476,7 @@ $$\hat{\theta} \pm z_{1-\alpha / 2} I^{-1 / 2}(\hat{\theta})$$
 where $\hat{\theta}$ is the MLE, z is a quantile in the standard normal distribution and I is the information
 
 ```{r}
+opt_bs <- nlminb(c(0,0), nll_combined, lower = c(-Inf, -Inf), data = act_data)
 CI_wald <- function(theta_hat, info){theta_hat+c(-1,1)*qnorm(1-0.05/2)*sqrt(1/info)}
 
 hess <- numDeriv::hessian(nll_combined, opt_bs$par, data = act_data)
@@ -458,3 +485,27 @@ cat("95% wald confidence interval for b0 is: ", CI_wald(opt_bs$par[1], hess[1,1]
 cat("\n95% wald confidence interval for b1 is: ", CI_wald(opt_bs$par[2], hess[2,2]))
 
 ```
+
+
+```{r}
+
+quad_log <- function(beta1){-1/2*hess[2,2]*(beta1-opt_bs$par[2])^2}
+
+
+c <- -1/2*qchisq(1-alpha,1)
+
+opt_b1 <- nlminb(c(0), nll_profile, lower = c(-Inf), data = act_data)
+b1 <- seq(0,2, 0.01)
+png("Plots/beta1_pl.png") # start saving
+col1 <- "#E06548"
+col2 <- "#537BE0"
+plot(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective , 'l', main = expression(paste("Profile likelihood for ", beta[1])), ylab = "Log-likelihood", xlab = expression(beta[1]), col = col1)
+lines(b1, sapply(b1, quad_log), col = col2)
+abline(h= c, col = col1)
+abline(v = opt_b1$par)
+abline(h = -nll_profile(CI_wald(opt_bs$par[2], hess[2,2]), data = act_data)[1]+opt_b1$objective, col = col2)
+legend("bottomright",legend = c("Numerical", "Wald"), fill = c(col1, col2))
+dev.off() #stop saving
+-nll_profile(CI_wald(opt_bs$par[2], hess[2,2]), data = act_data)[1]+opt_b1$objective
+```
+
