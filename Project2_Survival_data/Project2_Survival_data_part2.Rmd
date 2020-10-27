@@ -24,6 +24,7 @@ library(tidyr)
 library(ggplot2)
 library(GGally)
 library(magrittr)
+library(survival)
 ```
 
 
@@ -36,3 +37,36 @@ log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t") %>%
   bind_rows(data.frame(AZT = "Total", AIDS_yes = sum(.$AIDS_yes), n= sum(.$n)))
 
 ```
+
+```{r}
+tx0 = act_data %>% filter(tx == 0)
+tx1 = act_data %>% filter(tx == 1)
+tx0$time %>% max()  # Total follow up time
+tx1$time %>% max()  # Total follow up time
+tx0$event %>% sum() # Number of events in no treatment group
+tx1$event %>% sum() # Number of events in treatment group
+```
+
+
+```{r}
+
+Surv <- survfit(Surv(time, event)~1, conf.type = "log-log",
+                   data = act_data)
+
+Surv.Bygroup <- survfit(Surv(time,event == 1) ~ tx, conf.type = "log-log",
+                        data = act_data)
+
+par(mfrow = c(1,2))
+plot(Surv.Bygroup, col = 2:3, lwd = 2, conf.int =  T, ylim = c(0.8,1),
+     xlab = "Time (days)",
+     ylab = "Estimated Survival Prob.")
+# legend(1,0.8 , legend = c("Treatment", "No treamtent"), col = c("green", "red"))
+
+plot(Surv.Bygroup, col = 2:3, conf.int = T, fun=function(x) { 1- x }, las = 1, 
+     xlab = "Time (days)", 
+     ylab = "Estimated Prob. of AIDS / Death", lwd = 2, ylim = c(0,0.2))
+```
+```{r}
+survdiff(Surv(time, event == 1) ~ tx, data = act_data, rho = 1)
+```
+
