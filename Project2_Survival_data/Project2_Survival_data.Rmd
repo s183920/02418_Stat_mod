@@ -342,7 +342,7 @@ nll_combined <- function(theta, data){
   rate0 <- exp(-theta[1])
   rate1 <- exp(-(theta[1] + theta[2]))
   
-  -(nll(rate0, data %>% filter(tx == 1)) + nll(rate1, data %>% filter(tx == 0)))
+  -(nll(rate0, data %>% filter(tx == 0)) + nll(rate1, data %>% filter(tx == 1)))
   
 }
 
@@ -377,7 +377,7 @@ b = sum(d*t)
 c = sum(y*(1-t))
 d = sum(y*t)
 
--log((a+b)/(c+d*exp(-0.69)))
+-log((a+b)/(c+d*exp(-0.6991719)))
 
 ```
 
@@ -394,7 +394,7 @@ ll_profile <- function(b1, data){
   c = sum(y*(1-t))
   d2 = sum(y*t)
   
-  MLE_b0 = -log( (a+b)/(c+exp(-b1)) )
+  MLE_b0 = -log( (a+b)/(c+d2*exp(-b1)) )
   
   theta0 = exp(-MLE_b0)
   theta1 = exp(-(MLE_b0 + b1))
@@ -405,23 +405,42 @@ ll_profile <- function(b1, data){
 
 b1 <- seq(0,2.5,0.1)
 opt = optimize(ll_profile, c(-10,10), data = act_data, maximum = T)
-plot(b1, sapply(b1, ll_profile, data = act_data) - opt$objective, 'l')
+plot(b1, sapply(b1, ll_profile, data = act_data) - opt$objective, 'l', xlim = c(0,2), ylim = c(-10,0), main = "Profile likelihood of b1", ylab = "Normalised log likelihood")
 # lines(b1, -sapply(b1, nll_profile, data = act_data)+opt_b1$objective)
 abline(h = c_l)
+
 
 y = act_data$time
 d = act_data$event
 t = act_data$tx
-
 a = sum(d-d*t)
 b = sum(d*t)
 c = sum(y*(1-t))
 d2 = sum(y*t)
 
-MLE_b0 = -log( (a+b)/(c+exp(-0.699172)) )
-MLE_B1 = -(log(b/d2)+7.6203 )
+I = -numDeriv::hessian(ll_profile, opt$maximum, data = act_data)
+sqrt(1/I)
+lines(b1, -1/2*I*(b1-opt$maximum)^2, lty = 'dashed')
 
+I <- function(b0,b1){
+  y = act_data$time
+  d = act_data$event
+  t = act_data$tx
+  a = sum(d-d*t)
+  b = sum(d*t)
+  c = sum(y*(1-t))
+  d2 = sum(y*t)
+  
+  m1 = exp(-b0)*c + exp(-(b0+b1))*d2
+  m2 = exp(-(b0+b1))*d2
+  m3 = m2
+  matrix(c(m1,m3,m3,m2), nrow = 2)
+}
 
+I = solve(I(7.624363, 0.699172))[2,2]
+sqrt(I)
+I = 1/I
+lines(b1, -1/2*I*(b1-opt$maximum)^2, lty = 'dashed')
 ```
 
 ## Wald confidence interval

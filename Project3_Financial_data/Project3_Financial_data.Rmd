@@ -135,7 +135,7 @@ plot(loc,normalised_LL, 'l', main = "Normalised Log likelihodd", xlab = "Locatio
 library(numDeriv)
 I = -hessian(profile_mu_normal, opt_norm$maximum, data = y)
 lines(loc,-0.5*I*(loc-opt_norm$maximum)^2, lty = 'dotted')
-wald <- opt_norm$maximum + c(-1,1) * qnorm(1-alpha/2) * sqrt(1/I)
+wald <- opt_norm$maximum + c(-1,1) * qnorm(1-alpha/2) * sqrt(1/I)[1]
 ```
 
 Looking at the QQ plot, we see to much noise in the ends of the data. With this many datapoints, we cannot deem this model appropriate when the tails deviate this much from the QQline. We must therefore look at another model.
@@ -179,17 +179,18 @@ profile_mu_cauchy <- function(theta, data){
 opt_profile_cauchy <- optimize(profile_mu_cauchy, interval = c(-10,10), data = y, maximum = T)
 loc <- seq(-0.05,0.05, 0.0001)
 p_cauchy <- c()
-
+c <- -1/2 * qchisq(1-0.05, df = 1)
 for (i in 1:length(loc)){
   
   p_cauchy[i] = profile_mu_cauchy(loc[i], y)
 }
 normalised_LL_C <- p_cauchy-opt_profile_cauchy$objective 
-plot(loc,normalised_LL_C , 'l', main = "Normalised Log likelihodd", xlab = "Location parameter", ylab = "Log likelihodd")
-plot(loc, exp(normalised_LL_C), 'l', main = "Normalised likelihood",xlab = "Location parameter", ylab = "Likelihodd")
-
+plot(loc,normalised_LL_C , 'l', main = "Normalised Log likelihodd", xlab = "Location parameter", ylab = "Log likelihodd", xlim = c(-0.005, 0.01), ylim = c(-10, 0))
+# plot(loc, exp(normalised_LL_C), 'l', main = "Normalised likelihood",xlab = "Location parameter", ylab = "Likelihodd")
+abline(h = c)
 # Optimal MLE of location parameter with profile likelihood
-
+I = -hessian(profile_mu_normal, opt_profile_cauchy$maximum, data = y)
+lines(loc,-0.5*I*(loc-opt_profile_cauchy$maximum)^2, lty = 'dotted')
 ```
 
 ### Comparing Cauchy and Normal
@@ -235,6 +236,7 @@ AIC_T <- 2*opt_max$objective +2*3
 
 print("Comparing AIC")
 cat("Normal: ", AIC_normal, "\nCauchy: ", AIC_cauchy, "\nT: ", AIC_T)
+
 ```
 
 
