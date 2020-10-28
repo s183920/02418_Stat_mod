@@ -31,42 +31,151 @@ library(survival)
 # Data
 
 ## Load
-```{r Data load}
+```{r Data load, include = FALSE}
 act_data <- read.delim("../Data/actg320.txt", header = T, sep = "\t")
 log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t") %>% 
   bind_rows(data.frame(AZT = "Total", AIDS_yes = sum(.$AIDS_yes), n= sum(.$n)))
 
 ```
 
+
+# 1 Analysis of survival time data
+We wish to test for a difference between the 2 groups.
+
+## 1.1 Descriptive statistics 
+
+### How many patients got AIDS or died in the 2 treatment groups? And how long was the total follow up time in the 2 groups?
+
+The total follow up time is the time from the beginning of the study till the end of the study $t_f - t_0$ ie. the max time observed.
+
 ```{r}
 tx0 = act_data %>% filter(tx == 0)
 tx1 = act_data %>% filter(tx == 1)
-tx0$time %>% max()  # Total follow up time
-tx1$time %>% max()  # Total follow up time
-tx0$event %>% sum() # Number of events in no treatment group
-tx1$event %>% sum() # Number of events in treatment group
+ftime0 = tx0$time %>% max()  # Total follow up time
+ftime1 = tx1$time %>% max()  # Total follow up time
+nevents0 = tx0$event %>% sum() # Number of events in no treatment group
+nevents1 = tx1$event %>% sum() # Number of events in treatment group
+cat("The total follow up time in the treatment groups was: ", ftime1, ".The number of events was: ", nevents1, "\nThe total follow up time in the no treatment group was: ", ftime0, ".The number of events was: ", nevents0)
 ```
 
+### Plot the survival functions in the 2 treatments groups, which group seems to be doing best?
+
+The Kaplan Meier estimate of the survival function is used:
+$$S_{KM}(t) = \sum_{t_i < t} \frac{R_t - d_t}{R_t}$$
+Log-log confidence intervals are estimated:
+$$
+\left(\hat{c}_{l} ; \hat{c}_{u}\right)=\log [-\log (\hat{S}(t))] \pm z_{1-\alpha / 2} \sqrt{\operatorname{Var}[\log (-\log (\hat{S}(t)))]}
+$$
+with:
+$$
+Var[log(-log[S(t)])] = \frac{1}{[S(t)]^2}\sum_{t_i < t} \frac{d_i}{R_i(R_i - d_i)}
+$$
+To get the normal estimates of $\left(\hat{c}_{l} ; \hat{c}_{u}\right)$ these are reversed by: $\left( exp\left[-exp(\hat{c}_{l})\right] ; exp \left[ -exp(\hat{c}_{u})\right] \right)$
+
+The cumulative incidence function $F(t) = 1 - S(t)$ is also plotted to the right
 
 ```{r}
-
-Surv <- survfit(Surv(time, event)~1, conf.type = "log-log",
-                   data = act_data)
-
+# KM estimate of survival function for both groups (tx == 0 and tx == 1) with log-log confidence intervals
 Surv.Bygroup <- survfit(Surv(time,event == 1) ~ tx, conf.type = "log-log",
                         data = act_data)
 
+# Plotting
 par(mfrow = c(1,2))
 plot(Surv.Bygroup, col = 2:3, lwd = 2, conf.int =  T, ylim = c(0.8,1),
      xlab = "Time (days)",
      ylab = "Estimated Survival Prob.")
-# legend(1,0.8 , legend = c("Treatment", "No treamtent"), col = c("green", "red"))
+
+legend("bottomleft", legend = c("Treatment", "No treamtent"), col = c("green", "red"), lty = c(1,1))
 
 plot(Surv.Bygroup, col = 2:3, conf.int = T, fun=function(x) { 1- x }, las = 1, 
      xlab = "Time (days)", 
      ylab = "Estimated Prob. of AIDS / Death", lwd = 2, ylim = c(0,0.2))
 ```
+
+### Compare the two treatment groups using a log - rank test
+We compare the two groups by setting up the table for each surval time $t_i$
+$$
+\begin{array}{|c|c|c|c|}
+\hline \text { Event/Group } & 1 & 0 & \text { Total } \\
+\hline \text { Dead } & d_{1 i} & d_{0 i} & d_{i} \\
+\text { Not dead } & R_{1 i}-d_{1 i} & R_{0 i}-d_{0 i} & R_{i}-d_{i} \\
+\text { At risk } & R_{1 i} & R_{0 i} & R_{i} \\
+\hline
+\end{array}
+$$
+The expected number of deaths / AIDS (assuming equal survival probability) is 
+$$\hat{e}_{1 i}=R_{i} \frac{R_{1 i}}{R_{i}} \frac{d_{i}}{R_{i}}=\frac{R_{1 i} d_{i}}{R_{i}}$$
+A $\chi^2$ test with 1 degree of freedom can be used, with test statistic:
+$$\chi^2=\frac{\left(\sum_{i=1}^{m} w_{i}\left(d_{1 i}-\hat{e}_{1 i}\right)\right)^{2}}{\sum_{i=1}^{m} w_{i}^{2} \hat{v}_{1 i}}$$
+Where $v_i$ is a variance estimate defined by:
+$$\hat{v}_{i}=\frac{R_{1, i} R_{2, i} d_{i}\left(R_{i}-d_{i}\right)}{R_{i}^{2}\left(R_{i}-1\right)}$$
+And $w_i$ is a weight. If $w_i = 1$ we test is called log rank test, which is what we wish to do
 ```{r}
+# Log rank test:
 survdiff(Surv(time, event == 1) ~ tx, data = act_data, rho = 1)
 ```
+The result is $\chi^2 = 10.3$ on 1 degrees of freedom. This gives the p-value $p = 0.001$. The difference between the 2 survival functions is significant. 
 
+
+
+
+
+
+
+## 1.2 Parametric Survival Models
+### Fit parametric survival models containing treatment (tx) and CD4 count (cd4) as explantory variables.
+
+Fitting the 3 models:
+
+Exponential:   $logT = \mathbf{x}^T\mathbf{b} + \epsilon^*$, $exp(\epsilon^*) \sim Exp(\lambda = 1)$
+  
+Weibull:   $logT =  \mathbf{x}^T\mathbf{b} + \sigma \epsilon^*$, $exp(\sigma \epsilon^*) \sim Weibull(\lambda = 1, k =\frac{1}{\lambda})$
+
+Log logistic:   $logT =  \mathbf{x}^T\mathbf{b} + \sigma \epsilon^*$, $\epsilon^* \sim Logistic(\mu = 0, \sigma = 1)$
+
+```{r}
+mod_exp <- survreg(Surv(time, event == 1) ~ tx + cd4, data = act_data,
+                 dist = "exponential")
+mod_weibull <- survreg(Surv(time, event == 1) ~ tx + cd4, data = act_data,
+                 dist = "weibull")
+mod_loglogistic <- survreg(Surv(time, event == 1) ~ tx + cd4, data = act_data,
+                 dist = "loglogistic")
+summary(mod_exp)
+summary(mod_weibull)
+summary(mod_loglogistic)
+
+```
+
+Comparing the 3 models using AIC
+
+```{r}
+cat("Expontential:",AIC(mod_exp), "Weibull:",AIC(mod_weibull), "Log Logistic:",AIC(mod_loglogistic))
+```
+The lowest AIC is for the log logistic model. This is one with the best fit. 
+
+Showing a table of estimates of the log logistic model and their 95 % confidence intervals
+```{r}
+est = summary(mod_loglogistic)$table[,1]
+std = summary(mod_loglogistic)$table[,2]
+# Confidence intervals 
+(CI1 = est[1] + c(-1,1) * qnorm(0.975) * std[1])
+(CI2 = est[2] + c(-1,1) * qnorm(0.975) * std[2])
+(CI3 = est[3] + c(-1,1) * qnorm(0.975) * std[3])
+(CI4 = est[4] + c(-1,1) * qnorm(0.975) * std[4])
+# Table of estimates and confidence intervals
+cbind(est,matrix(c(CI1, CI2, CI3, CI4), nrow = 4  , byrow = T )) %>% data.frame() %>% plyr::rename(., c("est" = "Estimates", "V2" = "Lower","V3" = "Upper"))
+```
+
+```{r}
+act_data
+coef4 = coef(summary(mod_loglogistic))
+mod_loglogistic$scale
+t = sort(act_data$time)
+cd4 = 20
+Zt1 <- (log(t)-(coef4[1]+coef4[2]+coef4[3]*cd4))/mod_loglogistic$scale
+Zt0 <- (log(t)-(coef4[1]+coef4[3]*cd4))/mod_loglogistic$scale
+plot(t,1/(1+exp(Zt1)), type = 'l', ylim = c(0.8, 1))
+lines(t, 1/(1+exp(Zt0)), type = 'l')
+```
+ 
+ 
