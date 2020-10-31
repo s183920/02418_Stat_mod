@@ -1,0 +1,26 @@
+---
+title: "Project1: Wind power energy"
+output: 
+  html_document:
+  toc: true
+  toc_float: true
+  # toc_collapsed: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Packages
+
+```{r include=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(magrittr)
+library(MASS)
+```
+
+
