@@ -24,3 +24,48 @@ library(MASS)
 ```
 
 
+## Load
+```{r}
+wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
+summary(wind_data)
+#var(wind_data$pow.obs)
+#var(wind_data$ws30)
+#var(wind_data$wd30)
+
+require(ggplot2)
+ggplot(data = wind_data, aes(x=wd30, y=pow.obs)) + geom_boxplot(aes(fill=Label))
+```
+
+
+#Regression 
+
+## Initial model
+## Load
+```{r}
+glm(pow.obs ~ ws30, data = wind_data)
+linearMod <- lm(pow.obs ~ ws30, data=wind_data)  # build linear regression model on full data
+print(linearMod)
+#Linear model: pow.obs = −574.0 + 214.6∗ws30
+summary(linearMod)
+```
+```{r}
+plot(wind_data$ws30, wind_data$pow.obs, col="red", cex=0.2, pch=20, main="Power observations as a function of wind speed 30", xlab="Windspeed (m/s)", ylab="Average daily wind power production (kW)")
+points(wind_data$ws30, wind_data$pow.obs, col="blue", cex=0.2, pch=20)
+#legend("topleft", legend=c("Energy Possible (Uncurtailed)", "Energy Sentout (Curtailed)"), col=c("red", "green"), pch=20)
+
+```
+```{r}
+scatter.smooth(x=wind_data$ws30, y=wind_data$pow.obs, main="Pow.obs ~ wind speed") #scatterplot
+```
+```{r} 
+library(locfit)
+#Fiting a polynomial function
+empirical.mod<-locfit(pow.obs ~ ws30, data=wind_data)
+summary(empirical.mod)
+```
+
+```{r}
+plot(empirical.mod, main="Model Fit to Empirical Data")
+points(y=wind_data$pow.obs, x=wind_data$ws30, cex=0.1, pch=20, col="red")
+```
+
