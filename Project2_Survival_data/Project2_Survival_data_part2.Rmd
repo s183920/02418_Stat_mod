@@ -73,21 +73,22 @@ logL_partial <- function(theta, data, AZT = TRUE){
     y*((theta[1] + theta[2] * AZT) * 1 - log(1+exp(theta[1]+theta[2]*AZT))) + false*((theta[1] + theta[2] * AZT) * 0 - log(1+exp(theta[1]+theta[2]*AZT)))
 }
 
-logL <- function(theta, data){
+nlogL <- function(theta, data){
      - (logL_partial(theta,data, F) + logL_partial(theta,data, T))
   # - (logL_partial(theta, data, T))
 }
 
 lower <- c(-Inf, -Inf)
-opt <- nlminb(c(0, 0), logL, lower = lower, data = log_data, hessian = T)
+opt <- nlminb(c(0, 0), nlogL, lower = lower, data = log_data, hessian = T)
 
 print(exp(opt$par[2]))
 
-b1 <- c(-1.2791, -0.721766, -0.1827)
+b1 <- c(-1.2791, -0.721766, -0.1827) #taget fra tidligere rapport
 exp(b1)
 ```
 
 en værdi på 0.49 betyder at der er ca halv så stor chance for at få AIDS, når du får AZT ift. hvis du ikke får AZT
+for hver gang AZT stiger med 1, falder dødeligheden/chancen for AIDS med en faktor 0.49
 
 ## Likelihood ratio test
 
@@ -104,15 +105,15 @@ logL_partial2 <- function(b0, b1, data, AZT = TRUE){
 }
 
 
-logL_b1 <- function(theta, b1, data){
+nlogL2 <- function(theta, b1, data){
       -(logL_partial2(theta[1], b1,data, F) + logL_partial2(theta[1],b1,data, T))
 }
 
 profile_b1 <- function(b1, data){
-  opt <- nlminb(c(0), logL_b1, lower = c(-Inf), data = log_data, b1 = b1)
+  opt <- nlminb(c(0), nlogL2, lower = c(-Inf), data = log_data, b1 = b1)
   # optimize(logL)
   b0 <- opt$par
-  -logL_b1(c(b0),b1,data)
+  -nlogL2(c(b0),b1,data)
 }
 
 
@@ -129,7 +130,7 @@ abline(-1/2*qchisq(0.95, 1)/max(vals), 0)
 
 # exp(-profile_b1(MLE_b1, log_data))/exp(-1/2*qchisq(0.95, 1))
 
-CI <- CI[sapply(CI, Q) < 1/2*qchisq(0.95, 1)]
+CI <- CI[vals < 1/2*qchisq(0.95, 1)]
 cat("Confidence interval via the likelihood ratio test: ", min(CI), max(CI))
 
 
@@ -164,6 +165,74 @@ test-statistic givet ved $z=\frac{S\left(\theta_{0}\right)}{\sqrt{\mathcal{I}\le
 
 Log likelihood for logistic model:
 $$\log L\left(\beta_{0}, \beta_{1}\right)=\sum_{i}\left[\left(\beta_{0}+\beta_{1} \cdot G_{i}\right) y_{i}-\log \left(1+\exp \left(\beta_{0}+\beta_{1} \cdot G_{i}\right)\right)\right]$$
+Score function (first derivative wrt. $\beta_1$):
+$$
+S(\theta) = \sum _iG y-\frac{G e^{\theta G+\beta_0}}{1+e^{\theta G+\beta_0}}
+$$
+
+Information (negative of second derivative wrt. $\beta_1$):
+$$
+I(\theta) = \sum \frac{G e^{\theta G+\beta_0}}{\left(1+e^{\theta G+\beta_0}\right)^{2}}
+$$
+
+```{r}
+logL_partial3 <- function(b0, b1, data, AZT = TRUE){
+    y = if (AZT) {data[1,2]} else {data[2,2]} %>% as.numeric()
+    n = if (AZT) {data[1,3]} else {data[2,3]} %>% as.numeric()
+    false = n-y
+    
+    y*((b0 + b1 * AZT) * 1 - log(1+exp(b0+b1*AZT))) + false*((b0 + b1 * AZT) * 0 - log(1+exp(b0+b1*AZT)))
+}
+
+
+nlogL3 <- function(b0, theta, data){
+      -(logL_partial2(b0, theta,data, F) + logL_partial2(b0, theta,data, T))
+}
+
+
+b0_h0 <- function(theta0){
+  optimize(nlogL3, c(-5, 5), theta = theta0, data = log_data)$minimum
+}
+
+
+
+score_partial <- function(theta, b0, AZT = T){
+  "
+  AZT = G
+  "
+  data <- log_data
+  y = if (AZT) {data[1,2]} else {data[2,2]} %>% as.numeric()
+  n = if (AZT) {data[1,3]} else {data[2,3]} %>% as.numeric()
+  false = n-y
+  
+  y*(1*AZT-AZT*exp(theta*AZT+b0)/(1+exp(theta*AZT+b0))) + false*(0*AZT-AZT*exp(theta*AZT+b0)/(1+exp(theta*AZT+b0)))
+}
+
+score <- function(theta){
+  score_partial(theta, b0_h0(theta), AZT = T)+score_partial(theta, b0_h0(theta), AZT = F)
+}
+
+info_partial <- function(theta, b0, AZT = T){
+  data <- log_data
+  y = if (AZT) {data[1,2]} else {data[2,2]} %>% as.numeric()
+  n = if (AZT) {data[1,3]} else {data[2,3]} %>% as.numeric()
+  false = n-y
+  
+  y*(AZT*exp(theta*AZT+b0)/(1+exp(theta*AZT+b0))^2) + false*(AZT*exp(theta*AZT+b0)/(1+exp(theta*AZT+b0))^2)
+}
+
+info <- function(theta){
+  info_partial(theta, b0_h0(theta), AZT=T) + info_partial(theta, b0_h0(theta), AZT=F)
+}
+
+z <- score(0)/sqrt(info(0))
+
+cat("The test statistic for H0: theta = 0 is ", z, ", which yields a p-vlaue of ", pnorm(z))
+
+```
+
+As seen above the p-value leans towards a rejection of the null hypothesis $\beta_1 = 0$ and the score test there shows that AZT and $\beta_1$ has an effect.
+
 
 # 1 Analysis of survival time data
 We wish to test for a difference between the 2 groups.
