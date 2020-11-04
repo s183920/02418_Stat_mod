@@ -24,3 +24,90 @@ library(MASS)
 ```
 
 
+## Load
+```{r}
+wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
+summary(wind_data)
+#var(wind_data$pow.obs)
+#var(wind_data$ws30)
+#var(wind_data$wd30)
+
+require(ggplot2)
+ggplot(data = wind_data, aes(x=wd30, y=pow.obs)) + geom_boxplot(aes(fill=Label))
+```
+
+
+#Regression 
+
+## Initial model
+```{r}
+model1 <- glm(pow.obs ~ ws30 + I(ws30^2), data = wind_data, family=Gamma)
+summary(model1)#Linear model: pow.obs = −928.722 + 290.719∗ws30 - 3.268*ws30^2
+
+model2 <- glm(pow.obs ~ ws30 + I(ws30^2) + wd30, data=wind_data, family = Gamma)
+summary(model2)
+
+
+
+#Deviance test 
+anova(model1,model2,test="Chisq")
+
+```
+
+```{r}
+library(rcompanion)
+plotNormalHistogram(wind_data$pow.obs, wind_data$ws30)
+```
+
+```{r}
+plot(wind_data$ws30, wind_data$pow.obs, col="red", cex=0.2, pch=20, main="Power observations as a function of wind speed 30", xlab="Windspeed (m/s)", ylab="Average daily wind power production (kW)")
+points(wind_data$ws30, wind_data$pow.obs, col="blue", cex=0.2, pch=20)
+#legend("topleft", legend=c("Energy Possible (Uncurtailed)", "Energy Sentout (Curtailed)"), col=c("red", "green"), pch=20)
+
+```
+```{r}
+#Von mises benyt: install.packages("RDocumentation")
+library("RDocumentation")
+library("movMF")
+
+pts_on_unit_circle <- cbind(cos(wind_data$wd30 * pi / 180), 
+                            sin(wind_data$wd30 * pi / 180))
+d <- movMF(pts_on_unit_circle, 1)
+mu <- atan2(d$theta[,2], d$theta[,1])
+kappa <- sqrt(rowSums(d$theta^2))
+
+movMF(wind_data$wd30, k, control = list())
+
+
+pvonmises(wind_data$wd30, mu, kappa, from=NULL, tol = 1e-020)
+
+
+
+glm(exp(3.6*cos(pts_on_unit_circle-mean(pts_on_unit_circle)))/2*pi*I(3.6), data=wind_data)
+```
+
+
+```{r}
+scatter.smooth(x=wind_data$ws30, y=wind_data$pow.obs, main="Pow.obs ~ wind speed") #scatterplot
+```
+```{r} 
+library(locfit)
+#Fiting a polynomial function
+empirical.mod<-locfit(pow.obs ~ ws30, data=wind_data)
+summary(empirical.mod)
+```
+
+```{r}
+plot(empirical.mod, main="Model Fit to Empirical Data")
+points(y=wind_data$pow.obs, x=wind_data$ws30, cex=0.1, pch=20, col="red")
+```
+```{r}
+library(fitdistrplus)
+descdist(wind_data$pow.obs, boot=1000)
+descdist(wind_data$ws30, boot=1000) 
+```
+```{r}
+weibull.fit<-fitdist(wind_data$pow.obs, distr="weibull")
+summary(weibull.fit)
+```
+

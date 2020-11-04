@@ -209,13 +209,14 @@ Surv.Bygroup <- survfit(Surv(time,event == 1) ~ tx, conf.type = "log-log",
 par(mfrow = c(1,2))
 plot(Surv.Bygroup, col = 2:3, lwd = 2, conf.int =  T, ylim = c(0.8,1),
      xlab = "Time (days)",
-     ylab = "Estimated Survival Prob.")
+     ylab = "Estimated Survival Prob.", main = "Kaplan Meier Estimate of Survival Function")
 
 legend("bottomleft", legend = c("Treatment", "No treamtent"), col = c("green", "red"), lty = c(1,1))
 
 plot(Surv.Bygroup, col = 2:3, conf.int = T, fun=function(x) { 1- x }, las = 1, 
      xlab = "Time (days)", 
-     ylab = "Estimated Prob. of AIDS / Death", lwd = 2, ylim = c(0,0.2))
+     ylab = "Estimated Prob. of AIDS / Death", lwd = 2, ylim = c(0,0.2), main = "Cumulative Incidence Function")
+legend("topleft", legend = c("Treatment", "No treamtent"), col = c("green", "red"), lty = c(1,1))
 ```
 
 ### Compare the two treatment groups using a log - rank test
@@ -276,6 +277,7 @@ Comparing the 3 models using AIC
 
 ```{r}
 cat("Expontential:",AIC(mod_exp), "Weibull:",AIC(mod_weibull), "Log Logistic:",AIC(mod_loglogistic))
+
 ```
 The lowest AIC is for the log logistic model. This is one with the best fit. 
 
@@ -284,24 +286,92 @@ Showing a table of estimates of the log logistic model and their 95 % confidence
 est = summary(mod_loglogistic)$table[,1]
 std = summary(mod_loglogistic)$table[,2]
 # Confidence intervals 
-(CI1 = est[1] + c(-1,1) * qnorm(0.975) * std[1])
-(CI2 = est[2] + c(-1,1) * qnorm(0.975) * std[2])
-(CI3 = est[3] + c(-1,1) * qnorm(0.975) * std[3])
-(CI4 = est[4] + c(-1,1) * qnorm(0.975) * std[4])
+CI1 = est[1] + c(-1,1) * qnorm(0.975) * std[1]
+CI2 = est[2] + c(-1,1) * qnorm(0.975) * std[2]
+CI3 = est[3] + c(-1,1) * qnorm(0.975) * std[3]
+CI4 = est[4] + c(-1,1) * qnorm(0.975) * std[4]
 # Table of estimates and confidence intervals
-cbind(est,matrix(c(CI1, CI2, CI3, CI4), nrow = 4  , byrow = T )) %>% data.frame() %>% plyr::rename(., c("est" = "Estimates", "V2" = "Lower","V3" = "Upper"))
+(C = cbind(est,matrix(c(CI1, CI2, CI3, CI4), nrow = 4  , byrow = T )) %>% data.frame() %>% plyr::rename(., c("est" = "Estimates", "V2" = "Lower","V3" = "Upper")))
+```
+### Time ratio
+Compute time ratio for treatment effect for the treatment effect. Compute the time ratio for the effect of increasing CD4 count with 50.
+
+Time ratio is a measure of how much a covariate in the model affects the time to event. We will look at the mean time to event $t_{50}$
+
+$$TR_{tx}(tx, cd4) = \frac{t_{50}(tx = 1, cd4 = c)}{t_{50}(tx =0, cd4 = c)} = exp(\beta_1)$$
+$$TR_{cd4}(tx, cd4) = \frac{t_{50}(tx = t, cd4 = c+1)}{t_{50}(tx =t, cd4 = c)} = exp(\beta_2)$$
+
+This means we fixed every other covariates and looke in the change of a single covariate. $TR_{tx}$ gives the effect on the median time to event between the 2 treatment groups for persons with the same cd4 level. $TR_{cd4}$ gives the effect of an increase of 1 in cd4 for the same treatment group. If instead we wish to see the effect with an increase of 50: 
+$exp(\beta_{i} * 50)$
+With confidence intervals:
+$$CI_{TR} = exp(\hat{\beta_i} \pm z_{1-\alpha/2}SE(\hat{\beta_i}))$$
+
+This is done below:
+```{r}
+exp(c(est["tx"], C[2,2], C[2,3]))
+exp(c(est["cd4"]*50, C[3,2]*50, C[3,3]*50))
+
 ```
 
+The median time to event is 2.32 higher in the treatment group ie. people in the treament group lives longer.
+
+The median time to even is 2.82 higher with an increase of 50 in cd4. People with higher cd4 lives longer.
+
+### Cox Snell Residuals
+The Cox Snell Residuals $r_i$ are defined as $r_i = -log(\hat{S}_{t_i}) = \hat{H}(t_i)$ at time $t_i$ and $\hat{S}(t_i)$ is the predicted survival function from the model.
+
+For some reason it is known that the fitted model is good if these residuals follows a $exp(1)$ distribution.
+
+The survival function of $exp(1)$ is $S_{exp(1)} = exp(-x)$. From this we get
+$$-log S_{exp}(r_i) = -log (exp(-r_i)) = r_i$$
+If we use the non parametric Kaplan Meier estimate of the survival function of $r_i$ we can compare this to the observed Cox snell residuals
+
+$$(r_i , -log[S_{KM}(r_i)])$$
+This should follow a straight line with slope 1 and intercept 0, if the model is a good fit.
+
+This is done for the three models below (should only be done for log logistic):
 ```{r}
-act_data
-coef4 = coef(summary(mod_loglogistic))
-mod_loglogistic$scale
-t = sort(act_data$time)
-cd4 = 20
-Zt1 <- (log(t)-(coef4[1]+coef4[2]+coef4[3]*cd4))/mod_loglogistic$scale
-Zt0 <- (log(t)-(coef4[1]+coef4[3]*cd4))/mod_loglogistic$scale
-plot(t,1/(1+exp(Zt1)), type = 'l', ylim = c(0.8, 1))
-lines(t, 1/(1+exp(Zt0)), type = 'l')
+coxsnell1 <- log(1+exp((log(act_data$time) - mod_loglogistic$linear.predictors)/mod_loglogistic$scale))
+coxsnell2 <- exp((log(act_data$time) - mod_weibull$linear.predictors)/mod_weibull$scale)
+coxsnell3 <- act_data$time * exp(-mod_exp$linear.predictors)
+act_data$CS1 <- coxsnell1
+act_data$CS2 <- coxsnell2
+act_data$CS3 <- coxsnell3
+
+par(mfrow = c(3,1))
+SurvKM0 <- survfit(Surv(CS1, event == 1)~1, data = act_data)
+plot(SurvKM0$time, -log(SurvKM0$surv), main = "Cox Snell - Log Logistic", xlab = "Cox Snell residuals", ylab = "-log(S(t))")
+
+abline(a = 0, b = 1, lty = 2, lwd = 3, col = "red")
+SurvKM1 <- survfit(Surv(CS2, event == 1)~1, data = act_data)
+plot(SurvKM1$time, -log(SurvKM1$surv) , main = "Cox Snell - Weibull", xlab = "Cox Snell residuals", ylab = "-log(S(t))")
+abline(a = 0, b = 1, lty = 2, lwd = 3, col = "red")
+SurvKM2 <- survfit(Surv(CS3, event == 1)~1, data = act_data)
+plot(SurvKM2$time, -log(SurvKM2$surv) , main = "Cox Snell - Exponential", xlab = "Cox Snell residuals", ylab = "-log(S(t))")
+abline(a = 0, b = 1, lty = 2, lwd = 3, col = "red")
 ```
+
+
+### A Graphical presentation of the log logistic model
+```{r}
+coef4 = coef(summary(mod_loglogistic))
+scale = mod_loglogistic$scale
+t = sort(act_data$time)
+cd4 = c(0,50,100,150,200)
+cols = 2:6
+
+plot(0, type = 'n', 
+     xlab = "Time", ylab = "Survial Prob.", main = "Log logistic survival function", xlim = c(0,360), ylim = c(0.65,1))
+for (i in 1:5){
+  
+  Zt1 <- (log(t)-(coef4[1]+coef4[2]+coef4[3]*cd4[i]))/scale
+  Zt0 <- (log(t)-(coef4[1]+coef4[3]*cd4[i]))/scale
+  lines(t,1/(1+exp(Zt1)), lty = 1, col = cols[i], lwd = 2)
+  lines(t, 1/(1+exp(Zt0)), lty = 2, col = cols[i], lwd = 2)
+}
+legend("bottomleft",legend = cd4, col = cols, lty = 1, title = "CD4 level")
+
+
+
  
  
