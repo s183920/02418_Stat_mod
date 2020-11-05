@@ -227,11 +227,12 @@ info <- function(theta){
 
 z <- score(0)/sqrt(info(0))
 
-cat("The test statistic for H0: theta = 0 is ", z, ", which yields a p-vlaue of ", pnorm(z))
+cat("The test statistic for H0: theta = 0 is ", z, ", which yields a p-vlaue of ", 2*pnorm(z))
+cat("\nThe test statistic for H0: theta = 0 is ", z, ", which yields a p-vlaue of ", 1-pchisq(z^2, df = 1))
 
-```
+``` 
 
-As seen above the p-value leans towards a rejection of the null hypothesis $\beta_1 = 0$ and the score test there shows that AZT and $\beta_1$ has an effect.
+As seen above the p-value leans towards a rejection of the null hypothesis $\beta_1 = 0$ on a 6.5 % significance level and the score test there shows that AZT and $\beta_1$ has an effect. This does however not hold on the standard 5 % significance level, and the score test can therefore not reject the null hypothesis of $\beta_1 = 0$
 
 
 # 1 Analysis of survival time data
