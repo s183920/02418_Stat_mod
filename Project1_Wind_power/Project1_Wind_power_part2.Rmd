@@ -44,8 +44,10 @@ ggplot(data = wind_data, aes(x=wd30, y=pow.obs)) + geom_boxplot(aes(fill=Label))
 model1 <- glm(pow.obs ~ ws30 + I(ws30^2), data = wind_data, family=Gamma)
 summary(model1)#Linear model: pow.obs = −928.722 + 290.719∗ws30 - 3.268*ws30^2
 
-model2 <- glm(pow.obs ~ ws30 + I(ws30^2) + wd30, data=wind_data, family = Gamma)
+model2 <- glm(pow.obs ~ ws30 + I(ws30^2) + I(wd30)^3, data=wind_data, family=Gamma)
 summary(model2)
+
+
 
 
 
