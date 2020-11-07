@@ -28,12 +28,15 @@ library(MASS)
 ```{r}
 wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
 summary(wind_data)
+wind_data$pow.obs.norm <- (wind_data$pow.obs)/5000
+
+#normalized_pow.obs <- scale(wind_data$pow.obs)
+#colMeans(normalized_pow.obs)
+#apply(normalized_pow.obs, 2, sd)
 #var(wind_data$pow.obs)
 #var(wind_data$ws30)
 #var(wind_data$wd30)
 
-require(ggplot2)
-ggplot(data = wind_data, aes(x=wd30, y=pow.obs)) + geom_boxplot(aes(fill=Label))
 ```
 
 
@@ -41,14 +44,12 @@ ggplot(data = wind_data, aes(x=wd30, y=pow.obs)) + geom_boxplot(aes(fill=Label))
 
 ## Initial model
 ```{r}
-model1 <- glm(pow.obs ~ ws30 + I(ws30^2), data = wind_data, family=Gamma)
-summary(model1)#Linear model: pow.obs = −928.722 + 290.719∗ws30 - 3.268*ws30^2
+model1 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), data = wind_data)
+AIC(model1) #-216.3865
+summary(model1)
 
-model2 <- glm(pow.obs ~ ws30 + I(ws30^2) + I(wd30)^3, data=wind_data, family=Gamma)
-summary(model2)
-
-
-
+qqnorm(model1$residuals)
+qqline(model1$residuals)
 
 
 #Deviance test 
@@ -57,16 +58,149 @@ anova(model1,model2,test="Chisq")
 ```
 
 ```{r}
-library(rcompanion)
-plotNormalHistogram(wind_data$pow.obs, wind_data$ws30)
-```
-
-```{r}
-plot(wind_data$ws30, wind_data$pow.obs, col="red", cex=0.2, pch=20, main="Power observations as a function of wind speed 30", xlab="Windspeed (m/s)", ylab="Average daily wind power production (kW)")
+plot(wind_data$ws30, wind_data$pow.obs.norm, col="red", cex=0.2, pch=20, main="Power observations as a function of wind speed 30", xlab="Windspeed (m/s)", ylab="Average daily wind power production (kW)")
 points(wind_data$ws30, wind_data$pow.obs, col="blue", cex=0.2, pch=20)
 #legend("topleft", legend=c("Energy Possible (Uncurtailed)", "Energy Sentout (Curtailed)"), col=c("red", "green"), pch=20)
 
 ```
+
+
+## Models without data tranmsformation
+```{r}
+#series expnsion
+model2 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30)^3, data=wind_data)
+summary(model2)
+AIC(model2)
+
+
+#Gamma
+model3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), family=Gamma,  data=wind_data)
+summary(model3)
+AIC(model3)
+
+#Beta
+library(betareg)
+model4 <- betareg(pow.obs.norm ~ ws30, data=wind_data)
+summary(model4)
+AIC(model4) #-462.8008
+
+
+```
+
+
+
+
+## Models using transformation 1, from project 1:
+Optimer lambda således at residualerne fra modellen best fitter en normalfordeling. 
+
+```{r, warning=FALSE}
+trans1 <- function(lambda,y){
+    y.l <- 1/lambda*log((y^lambda)/(1-y^lambda))
+    return(y.l)}
+
+## profile likelihood for lambda
+lp.lambda1 <- function(lambda,y){
+    mod <- lm(trans1(lambda,y)~wind_data$ws30+I(wind_data$ws30^2))
+    length(y)/2*log(summary(mod)$sigma^2) - sum(log(abs(1/(y*(1 - y^lambda)))))
+    }
+
+plot(seq(0.01,1,0.01), sapply(seq(0.01,1,0.01), lp.lambda1, y=wind_data$pow.obs.norm))
+
+lp.lambda1(1/1, wind_data$pow.obs.norm)
+(opt.lambda.trans1=optimize(lp.lambda1,c(0,1),y=wind_data$pow.obs.norm))
+
+```
+
+```{r}
+model5=glm(trans1(opt.lambda.trans1$minimum,wind_data$pow.obs.norm) ~ ws30+I(wind_data$ws30^2),family=gaussian,  data=wind_data)
+summary(model5)
+AIC(model5) #1583.717 hvad er meningen med, at denne bliver så høj?
+```
+
+```{r}
+qqnorm(model5$residuals)
+qqline(model5$residuals)
+
+```
+
+
+
+## Models using transformation 2 from project 1:
+```{r, warning=FALSE}
+trans2 <- function(lambda,y){
+    y.l <- 2*log((y^lambda)/(1-y)^(1-lambda))
+    return(y.l)}
+
+## profile likelihood for lambda
+lp.lambda2 <- function(lambda,y){
+    n <- length(y)
+    y.l <- trans2(lambda ,y)
+    sigmasq <- 1/n * sum((y.l-mean(y.l))^2)
+    -n/2 * log(sigmasq) + sum(log(abs(((4*lambda - 2)*y - 2*lambda)/(y*(-1 + y)))))}
+    
+(opt.lambda.trans2=optimize(lp.lambda2,c(0.000001,1),y=wind_data$pow.obs.norm, maximum=TRUE))
+
+```
+```{r}
+model6=glm(trans2(opt.lambda.trans2$maximum,wind_data$pow.obs.norm)~ ws30 , family=gaussian,  data=wind_data)
+summary(model6)
+AIC(model6) #hvorfor bliver denne så stor???
+```
+```{r}
+qqnorm(model6$residuals)
+qqline(model6$residuals)
+```
+
+
+## Models using Boxcox transformation: 
+```{r}
+## box-cox transformation
+bc.trans <- function(lambda,y){
+    y.l <- (y^lambda-1)/lambda
+    
+    if(lambda==0){y.l <- log(y)}
+    return(y.l)}
+
+## profile likelihood for lambda
+lp.lambda <- function(lambda,y){
+    n <- length(y)
+    y.l <- bc.trans(lambda ,y)
+    sigmasq <- 1/n * sum((y.l-mean(y.l))^2)
+    -n/2 * log(sigmasq) + (lambda-1)*sum(log(y))}
+
+(opt.lambda.boxcox=optimize(lp.lambda,c(-2,2),y=wind_data$pow.obs.norm,maximum=TRUE))
+```
+
+```{r}
+model7 <- glm(bc.trans(opt.lambda.boxcox$maximum,wind_data$pow.obs.norm)~ ws30,family=gaussian,  data=wind_data)
+summary(model7)
+AIC(model7) #408.4183
+```
+
+```{r}
+qqnorm(model7$residuals) #de er virkelig flot normalfordelte!!!
+qqline(model7$residuals)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Gamle ting herunder 
+
+
+
 ```{r}
 #Von mises benyt: install.packages("RDocumentation")
 library("RDocumentation")
