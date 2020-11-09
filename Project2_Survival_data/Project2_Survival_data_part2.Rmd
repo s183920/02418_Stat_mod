@@ -51,6 +51,14 @@ Tag exp(b1) for at få odds se s. 155
 
 indsæt værdier fundet i tidligere rapport
 
+estiamte parameters in regression model
+```{r}
+beta0 <- -1.036
+beta1 <- -0.7218
+exp(beta0)/(1+exp(beta0))
+exp(beta0+beta1)/(1+exp(beta0+beta1))
+```
+
 ```{r}
 #verison 1
 # dat <- data.frame(AZT = rep(1,25), AIDS = rep(1, 25)) %>%
@@ -75,7 +83,7 @@ logL_partial <- function(theta, data, AZT = TRUE){
 
 nlogL <- function(theta, data){
      - (logL_partial(theta,data, F) + logL_partial(theta,data, T))
-  # - (logL_partial(theta, data, T))
+  # - (logL_partial(theta, data, T)/logL_partial(theta, data, F))
 }
 
 lower <- c(-Inf, -Inf)
@@ -85,10 +93,27 @@ print(exp(opt$par[2]))
 
 b1 <- c(-1.2791, -0.721766, -0.1827) #taget fra tidligere rapport
 exp(b1)
+
+
+
+opt1 <- nlminb(c(0, 0), logL_partial, lower = lower, data = log_data, AZT = T, hessian = T)
+opt2 <- nlminb(c(0, 0), logL_partial, lower = lower, data = log_data, AZT = F, hessian = T)
+opt1$par
+opt2$par
 ```
 
 en værdi på 0.49 betyder at der er ca halv så stor chance for at få AIDS, når du får AZT ift. hvis du ikke får AZT
 for hver gang AZT stiger med 1, falder dødeligheden/chancen for AIDS med en faktor 0.49
+
+```{r}
+log_data
+
+aids_yes <- log_data$AIDS_yes
+n <- log_data$n
+
+aids_yes[1]*(n[2]-aids_yes[2])/((n[1]-aids_yes[1])*aids_yes[2])
+```
+
 
 ## Likelihood ratio test
 
@@ -133,9 +158,10 @@ abline(-1/2*qchisq(0.95, 1)/max(vals), 0)
 CI <- CI[vals < 1/2*qchisq(0.95, 1)]
 cat("Confidence interval via the likelihood ratio test: ", min(CI), max(CI))
 
-
-p_val <- pchisq(-2*(profile_b1(0, log_data)-profile_b1(MLE_b1, log_data)), df = 1, lower.tail = F) #signifcant
-cat("P-value for likelihood ratio test: ", p_val)
+q <- -2*(profile_b1(0, log_data)-profile_b1(MLE_b1, log_data))
+q
+p_val <- pchisq(q, df = 1, lower.tail = F) #signifcant
+cat("\nP-value for likelihood ratio test: ", p_val)
 ```
 
 
@@ -148,12 +174,12 @@ Hvor $\theta_0 = 0$, da dette er vores nul-hypotese. og $s e\left(\hat{\theta}_{
 Et konfidens interval kan fidnes ved: $\hat{\theta}_{i} \pm z_{1-\alpha / 2} \operatorname{se}\left(\hat{\theta}_{i}\right)$
 
 ```{r}
-hess <- numDeriv::hessian(logL, opt$par, data = log_data)
+hess <- numDeriv::hessian(nlogL, opt$par, data = log_data)
 se <- sqrt(solve(hess)[2,2])
 CI_b1 <- opt$par[2]+c(-1,1)*qnorm(0.975)*se
 cat("The confidence interval for the treatment parameter with the wald test is: ", CI_b1)
 
-cat("The p-value with the wald test is: ", pnorm(MLE_b1/se))
+cat("\nThe p-value with the wald test is: ", pnorm(MLE_b1/se))
 ```
 
 

@@ -35,7 +35,11 @@ act_data <- read.delim("../Data/actg320.txt", header = T, sep = "\t")
 log_data <-  read.delim("../Data/Logistic.txt", header = T, sep = "\t") %>% 
   bind_rows(data.frame(AZT = "Total", AIDS_yes = sum(.$AIDS_yes), n= sum(.$n)))
 
+log_data %>% xtable::xtable(caption = "The data contained in Logistic.txt", label = "log_data")
 ```
+
+
+
 
 ## Summaries
 
@@ -61,6 +65,29 @@ summary(act_data)
 #pairplot_act  <- ggpairs(act_data)
 #ggsave("Plots/pairplot_act.png", pairplot_act)
 ```
+
+
+```{r}
+par(mfrow = c(2,2))
+
+act_data %>% filter(tx == 0, event == 0) %>%  pull(time) %>% hist(breaks = 100, xlim = c(0, max(act_data$time)+50), main = "tx = 0, event = 0", xlab = "time")
+
+act_data %>% filter(tx == 0, event == 1) %>%  pull(time) %>% hist(breaks = 100, xlim = c(0, max(act_data$time)+50), main = "tx = 0, event = 1", xlab = "time")
+
+act_data %>% filter(tx == 1, event == 0) %>%  pull(time) %>% hist(breaks = 100, xlim = c(0, max(act_data$time)+50), main = "tx = 1, event = 0", xlab = "time")
+
+act_data %>% filter(tx == 1, event == 1) %>%  pull(time) %>% hist(breaks = 100, xlim = c(0, max(act_data$time)+50), main = "tx = 1, event = 1", xlab = "time")
+
+par(mfrow = c(1,2))
+act_data %>%   pull(time) %>% hist(breaks = 100, xlim = c(0, max(act_data$time)+50), main = "Histogram of the time variable", xlab = "time")
+
+```
+
+
+```{r}
+
+```
+
 
 # Analysis of the binary data
 
