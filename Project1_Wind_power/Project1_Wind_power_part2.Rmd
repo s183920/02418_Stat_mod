@@ -63,6 +63,21 @@ points(wind_data$ws30, wind_data$pow.obs, col="blue", cex=0.2, pch=20)
 #legend("topleft", legend=c("Energy Possible (Uncurtailed)", "Energy Sentout (Curtailed)"), col=c("red", "green"), pch=20)
 
 ```
+## Konverter wd30 til punkter på en enhedscirkel
+```{r}
+#Von mises benyt: install.packages("RDocumentation")
+library("RDocumentation")
+library("movMF")
+
+pts_on_unit_circle <- cbind(cos(wind_data$wd30 * pi / 180), 
+                            sin(wind_data$wd30 * pi / 180))
+d <- movMF(pts_on_unit_circle, 1)
+mu <- atan2(d$theta[,2], d$theta[,1])
+kappa <- sqrt(rowSums(d$theta^2))
+
+movMF(pts_on_unit_circle, 3.6, control = list())
+```
+
 
 
 ## Models without data tranmsformation
