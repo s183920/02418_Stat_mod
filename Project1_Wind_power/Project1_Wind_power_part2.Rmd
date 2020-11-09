@@ -76,6 +76,8 @@ mu <- atan2(d$theta[,2], d$theta[,1])
 kappa <- sqrt(rowSums(d$theta^2))
 
 movMF(pts_on_unit_circle, 3.6, control = list())
+
+
 ```
 
 
@@ -87,7 +89,7 @@ model2.1 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), data=wind_data)
 summary(model2.1)
 model2.2 <- glm(pow.obs.norm ~ ws30 + I(pts_on_unit_circle), data=wind_data)
 summary(model2.2)
-model2.3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(pts_on_unit_circle^3), family=Gamma, data=wind_data)
+model2.3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30^3), family=Gamma, data=wind_data) #Denne benyttes!!! -301.6694
 
 
 AIC(model2.1)
@@ -97,9 +99,9 @@ AIC(model2.3)
 
 ```{r}
 #Gamma
-model3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(pts_on_unit_circle^3), family=Gamma(log),  data=wind_data)
+model3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30^3), family=Gamma(log),  data=wind_data)
 summary(model3)
-AIC(model3) #-333.9629
+AIC(model3) #-333.9629 med poac og  -332.7959 med wd30
 
 
 anova(model3,model2.1,test="Chisq")
@@ -125,7 +127,9 @@ library(ggplot2)
 predict(model3, type="response")
 
 
-plot(wind_data$ws30, wind_data$pow.obs.norm, pch = 16, xlab = , ylab = "VS")
+
+
+plot(wind_data$ws30, wind_data$pow.obs.norm, pch = 16, xlab = , ylab = "Pow.obs.norm")
 lines(predict(model3, type="response"))
 ```
 
@@ -286,14 +290,15 @@ scatter.smooth(x=wind_data$ws30, y=wind_data$pow.obs, main="Pow.obs ~ wind speed
 ```{r} 
 library(locfit)
 #Fiting a polynomial function
-empirical.mod<-locfit(pow.obs.norm ~ ws30 + pts_on_unit_circle, data=wind_data, family="gamma")
+empirical.mod<-locfit(pow.obs.norm ~ ws30, data=wind_data, family="gamma")
 summary(empirical.mod)
 ```
 
 ```{r}
-plot(empirical.mod)
-plot(model3)
+plot(model5)
 points(y=wind_data$pow.obs.norm, x=wind_data$ws30, cex=0.1, pch=20, col="red")
+
+
 var(wind_data$ws30,wind_data$pow.obs.norm)
 fitted <- fitted(empirical.mod)
 
