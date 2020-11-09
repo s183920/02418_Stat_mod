@@ -68,24 +68,63 @@ points(wind_data$ws30, wind_data$pow.obs, col="blue", cex=0.2, pch=20)
 ## Models without data tranmsformation
 ```{r}
 #series expnsion
-model2 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30)^3, data=wind_data)
-summary(model2)
-AIC(model2)
+model2.1 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), data=wind_data)
+summary(model2.1)
+model2.2 <- glm(pow.obs.norm ~ ws30 + I(pts_on_unit_circle), data=wind_data)
+summary(model2.2)
+model2.3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(pts_on_unit_circle^3), family=Gamma, data=wind_data)
 
 
+AIC(model2.1)
+AIC(model2.2)
+AIC(model2.3)
+```
+
+```{r}
 #Gamma
-model3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), family=Gamma,  data=wind_data)
+model3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(pts_on_unit_circle^3), family=Gamma(log),  data=wind_data)
 summary(model3)
-AIC(model3)
+AIC(model3) #-333.9629
 
+
+anova(model3,model2.1,test="Chisq")
+
+```
+
+```{r}
 #Beta
 library(betareg)
-model4 <- betareg(pow.obs.norm ~ ws30, data=wind_data)
+model4 <- betareg(pow.obs.norm ~ ws30 + I(ws30^2) + I(pts_on_unit_circle^3), data=wind_data)
 summary(model4)
-AIC(model4) #-462.8008
+AIC(model4) #-480.2231   med poauc: -484.3731
 
 
 ```
+
+
+
+## Predict 
+
+```{r}
+library(ggplot2)
+predict(model3, type="response")
+
+
+plot(wind_data$ws30, wind_data$pow.obs.norm, pch = 16, xlab = , ylab = "VS")
+lines(predict(model3, type="response"))
+```
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -144,7 +183,7 @@ lp.lambda2 <- function(lambda,y){
 ```{r}
 model6=glm(trans2(opt.lambda.trans2$maximum,wind_data$pow.obs.norm)~ ws30 , family=gaussian,  data=wind_data)
 summary(model6)
-AIC(model6) #hvorfor bliver denne så stor???
+AIC(model6) #hvorfor bliver denne så stor??? 860.2163
 ```
 ```{r}
 qqnorm(model6$residuals)
@@ -168,7 +207,10 @@ lp.lambda <- function(lambda,y){
     sigmasq <- 1/n * sum((y.l-mean(y.l))^2)
     -n/2 * log(sigmasq) + (lambda-1)*sum(log(y))}
 
+
 (opt.lambda.boxcox=optimize(lp.lambda,c(-2,2),y=wind_data$pow.obs.norm,maximum=TRUE))
+
+
 ```
 
 ```{r}
@@ -212,10 +254,10 @@ d <- movMF(pts_on_unit_circle, 1)
 mu <- atan2(d$theta[,2], d$theta[,1])
 kappa <- sqrt(rowSums(d$theta^2))
 
-movMF(wind_data$wd30, k, control = list())
+movMF(pts_on_unit_circle, 3.6, control = list())
 
 
-pvonmises(wind_data$wd30, mu, kappa, from=NULL, tol = 1e-020)
+pvonmises(pts_on_unit_circle, mu, kappa, from=NULL, tol = 1e-020)
 
 
 
@@ -229,13 +271,35 @@ scatter.smooth(x=wind_data$ws30, y=wind_data$pow.obs, main="Pow.obs ~ wind speed
 ```{r} 
 library(locfit)
 #Fiting a polynomial function
-empirical.mod<-locfit(pow.obs ~ ws30, data=wind_data)
+empirical.mod<-locfit(pow.obs.norm ~ ws30 + pts_on_unit_circle, data=wind_data, family="gamma")
 summary(empirical.mod)
 ```
 
 ```{r}
-plot(empirical.mod, main="Model Fit to Empirical Data")
-points(y=wind_data$pow.obs, x=wind_data$ws30, cex=0.1, pch=20, col="red")
+plot(empirical.mod)
+plot(model3)
+points(y=wind_data$pow.obs.norm, x=wind_data$ws30, cex=0.1, pch=20, col="red")
+var(wind_data$ws30,wind_data$pow.obs.norm)
+fitted <- fitted(empirical.mod)
+
+
+library(MASS)
+test <- gamma.shape(model3, verbose = TRUE)
+
+fit2 <- rxGlm(
+  pow.obs.norm ~ ws30 + pts_on_unit_circle,
+  data = wind_data,
+  family = Gamma(link = "inverse"))
+summary(fit2)
+
+
+
+x     <- data.frame(wind_data$pow.obs.norm, wind_data$ws30)
+model <- glm(pow.obs.norm ~ ws30, data= wind_data)
+plot(wind_data$ws30, wind_data$pow.obs.norm, #xlab="Temperature",ylab="Probability of Response"
+     ) 
+curve(predict(model, add=TRUE, col="red")
+
 ```
 ```{r}
 library(fitdistrplus)
