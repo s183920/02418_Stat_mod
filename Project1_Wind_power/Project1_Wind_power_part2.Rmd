@@ -240,8 +240,9 @@ predmodel5int <- predict(modelny, newdata = df, interval="confidence")
 ws <- seq(0,28, length=288)
 ws2 <- (ws)^2
 
-plot(ws, predmodel5[,1], type = 'l')
+plot(ws, predmodel5[,1], type = 'l', ylim = c(-6,25))
 lines(ws, predmodel5[,2], col = 2, lty = 2)
+lines(ws, predmodel5[,3], col = 2, lty = 2)
 
 predmodel5[,1]
 matplot(ws,predmodel5, type="l")
