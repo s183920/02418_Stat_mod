@@ -261,12 +261,15 @@ predmodel5int <- predict(modelny, newdata = df, interval="confidence")
 plot(ws, predmodel5[,1], type = 'l', ylim = c(0,1))
 lines(ws, predmodel5[,2], col = 2, lty = 2)
 lines(ws, predmodel5[,3], col = 2, lty = 2)
+points(wind_data$ws30, wind_data$pow.obs.norm, col="blue", cex=0.2, pch=20)
+
+plot(ws, predmodel5[,1], type = 'l', ylim = c(0,1))
+lines(ws, predmodel5[,2], col = 2, lty = 2)
+lines(ws, predmodel5[,3], col = 2, lty = 2)
 points(wind_data$ws30, windpower, col="blue", cex=0.2, pch=20)
 
-plot(wind_data$ws30, wind_data$pow.obs.norm, col="red", cex=0.2, pch=20, main="Power observations as a function of wind speed 30", xlab="Windspeed (m/s)", ylab="Average daily wind power production (kW)")
-points(wind_data$ws30, wind_data$pow.obs, col="blue", cex=0.2, pch=20)
-#legend("topleft", legend=c("Energy Possible (Uncurtailed)", "Energy Sentout (Curtailed)"), col=c("red", "green"), pch=20)
-  
+
+
 qqnorm(modelny$residuals)
 qqline(modelny$residuals)
 
@@ -420,7 +423,7 @@ kappa <- sqrt(rowSums(d$theta^2))
 
 movMF(pts_on_unit_circle, 3.6, control = list())
 
-
+plot
 
 
 pvonmises(pts_on_unit_circle, mu, kappa, from=NULL, tol = 1e-020)
