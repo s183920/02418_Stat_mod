@@ -1,0 +1,31 @@
+---
+title: 'Project3: Financial data part 3'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages
+
+```{r Packages, include = FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(magrittr)
+```
+
+
+# Data
+
+## Load
+```{r}
+finance_data <- read.csv("../Data/finance_data.csv", header = T, sep = ";") %>% 
+  # tidyr::separate("time", c("year", "month", "day"), sep = "-") %>% 
+  dplyr::mutate(time = lubridate::ymd(time)) 
+  
+summary(finance_data)
+
+```
