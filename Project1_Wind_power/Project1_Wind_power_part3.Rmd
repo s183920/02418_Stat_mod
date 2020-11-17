@@ -1,0 +1,43 @@
+---
+title: "Project1: Wind power energy part 3"
+output: 
+  html_document:
+  toc: true
+  toc_float: true
+  # toc_collapsed: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Packages
+
+```{r include=FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(magrittr)
+library(MASS)
+```
+
+
+## Load
+```{r}
+wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
+summary(wind_data)
+wind_data$pow.obs.norm <- (wind_data$pow.obs)/5000
+wind_data$ws30.norm <- (wind_data$ws30)/max(ws30)
+
+wind_data
+
+#normalized_pow.obs <- scale(wind_data$pow.obs)
+#colMeans(normalized_pow.obs)
+#apply(normalized_pow.obs, 2, sd)
+#var(wind_data$pow.obs)
+#var(wind_data$ws30)
+#var(wind_data$wd30)
+
+```
