@@ -57,7 +57,7 @@ wind_data
 
 model = lm(pow.lambda ~ ws30 + I(ws30^2), data = wind_data)
 summary(model)
-
+  
 
 plot(wind_data$ws30, wind_data$pow.lambda)
 abline(model)
@@ -94,6 +94,79 @@ nll_multivariate<- function(par, data){
 }
 
 nlminb(start = c(1,.5), nll_multivariate, lower = c(1e-16,1e-16), upper = c(1,0.999), data = res_matrix(res))
+
+```
+
+
+# Contour Plots
+```{r}
+sigma = seq(0.72,1.1, by = 0.01)
+p = seq(0.15,0.45, by = 0.01)
+
+data = res_matrix(res)
+print(length(sigma))
+Z = matrix(data = NA, nrow = length(sigma), ncol = length(p))
+for (i in 1:length(sigma)){
+  print(i)
+  for (j in 1:length(p)){
+    
+    Z[i,j] = nll_multivariate(c(sigma[i], p[j]), data)
+
+  }
+  
+}
+A = -Z -(max(-Z))
+confint = c(.99, .975, .95, .9, .8, .5)
+C = exp(-1/2*qchisq(confint, df = 1))
+contour(x = sigma, y = p, exp(A), level=C, xlab = expression(sigma^2), ylab = expression(rho), main = "Countour Plot of confidence regions", labels = confint)
+```
+
+
+
+
+
+
+# P values for rho. Wald and Likelihood test
+
+```{r}
+nll_multivariate2<- function(sigma, p, data){
+  Sigma = matrix(data = c(sigma, p*sigma, p*sigma, sigma), nrow = 2, ncol = 2, byrow = T)
+  n = length(res_matrix(res))/2
+  sum = 0
+  
+  for (i in 1:n){
+      x <- data[i,]
+      sum = sum - 1/2*(log(det(Sigma)) + t(x) %*% solve(Sigma) %*% x + 2*log(2*pi))
+  
+  }
+  return(-sum)
+}
+
+
+
+Profile_rho <- function(rho){
+  sigma = nlminb(start = c(1), nll_multivariate2, lower = c(1e-16), upper = c(1), p = rho, data = res_matrix(res))$par
+  
+  nll_multivariate2(sigma, rho, data = res_matrix(res))
+
+
+}
+rho <- seq(0,0.5, by = 0.01)
+L = sapply(rho,Profile_rho)
+plot(rho, -L-max(-L), 'l')
+C = -1/2*qchisq(1-0.05, df = 1)
+abline(h = C)
+
+
+opt = nlminb(start = c(0.5), Profile_rho, lower = c(1e-16), upper = c(0.999))
+
+objective = -opt$objective
+h0 = -Profile_rho(0)
+
+Q = -2*(h0-objective)
+p = pchisq(Q, df = 1, lower.tail = F)
+cat("P-value for likelihood ratio test:", p)
+
 
 ```
 
