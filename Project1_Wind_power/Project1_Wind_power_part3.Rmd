@@ -29,7 +29,7 @@ library(MASS)
 wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
 summary(wind_data)
 wind_data$pow.obs.norm <- (wind_data$pow.obs)/5000
-wind_data$ws30.norm <- (wind_data$ws30)/max(ws30)
+wind_data$ws30.norm <- (wind_data$ws30)/max(wind_data$ws30)
 
 wind_data
 
@@ -41,3 +41,59 @@ wind_data
 #var(wind_data$wd30)
 
 ```
+
+
+
+
+
+
+```{r}
+data_transform <- function(y, lambda){
+  2 * log(y^lambda/((1-y)^(1-lambda)))
+  
+}
+wind_data$pow.lambda <- data_transform(wind_data$pow.obs.norm, 0.2)
+wind_data
+
+model = lm(pow.lambda ~ ws30 + I(ws30^2), data = wind_data)
+summary(model)
+
+
+plot(wind_data$ws30, wind_data$pow.lambda)
+abline(model)
+
+```
+
+```{r}
+res = model$residuals
+
+res_matrix <- function(res){
+  n = length(res) - 1
+  M = matrix(nrow = n, ncol = 2)
+  
+  for (i in 1:n){
+    M[i, 1] = res[i]
+    M[i, 2] = res[i+1]
+  }
+  return(M)
+}
+
+nll_multivariate<- function(par, data){
+  sigma = par[1]
+  par[2] -> p
+  Sigma = matrix(data = c(sigma, p*sigma, p*sigma, sigma), nrow = 2, ncol = 2, byrow = T)
+  n = length(res_matrix(res))/2
+  sum = 0
+  
+  for (i in 1:n){
+      x <- data[i,]
+      sum = sum - 1/2*(log(det(Sigma)) + t(x) %*% solve(Sigma) %*% x + 2*log(2*pi))
+  
+  }
+  return(-sum)
+}
+
+nlminb(start = c(1,.5), nll_multivariate, lower = c(1e-16,1e-16), upper = c(1,0.999), data = res_matrix(res))
+
+```
+
