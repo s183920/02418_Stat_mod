@@ -29,6 +29,9 @@ library(MASS)
 wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
 summary(wind_data)
 wind_data$pow.obs.norm <- (wind_data$pow.obs)/5000
+wind_data$ws30.norm <- (wind_data$ws30)/max(ws30)
+
+wind_data
 
 #normalized_pow.obs <- scale(wind_data$pow.obs)
 #colMeans(normalized_pow.obs)
@@ -48,7 +51,11 @@ model1 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), data = wind_data, family = Gamma(
 model2 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + wd30, data = wind_data, family = Gamma(link = "logit"))
 AIC(model2) #-216.3865
 summary(model1)
-anova(model1,model2, test = "Chisq")
+
+predmodel1 <- predict(model1, newdata = df, interval="prediction")
+predmodel1 <- predict(model1, newdata = df, interval="confidence")
+
+
 qqnorm(model1$residuals)
 qqline(model1$residuals)
 
@@ -56,8 +63,29 @@ qqline(model1$residuals)
 #Deviance test 
 anova(model1,model2,test="Chisq")
 
-model1$null.deviance
 
+modellogit <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30), data = wind_data, family = gaussian(link = "logit"))
+AIC(modellogistic) #-225.6643
+
+modellogistic <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30), data = wind_data, family = gaussian(link = "log"))
+AIC(modellogit) #-232.0188
+
+model2.3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30^3), family=Gamma, data=wind_data) #-301.6694
+
+modelgamma <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30), data = wind_data, family = Gamma(link = "logit"))
+AIC(modelgamma) #-332.4366
+
+modelgammalogpo <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(pts_on_unit_circle), data = wind_data, family=Gamma(log))
+AIC(modelgammapo) #-337.1403
+
+modelgammapo <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(pts_on_unit_circle), data = wind_data, family = Gamma(link = "logit"))
+AIC(modelgammapo) #-340.1676
+
+model2.3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30^3), family=Gamma, data=wind_data) #-301.6694
+
+
+model4 <- betareg(pow.obs.norm ~ ws30.norm + I(ws30.norm^2) + I(pts_on_unit_circle^3), data=wind_data) # med norm -484.9559
+qqPlot(model4$residuals, dist = "beta", estimate.params = TRUE, add.line = TRUE, xlim = c(-0.3,0.4))
 
 
 ```
@@ -105,6 +133,7 @@ AIC(model2.3)
 ```{r}
 #Gamma
 model3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30^3), family=Gamma(log),  data=wind_data)
+model3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), family=Gamma,  data=wind_data) #tester lige en ny model3
 summary(model3)
 AIC(model3) #-333.9629 med poac og  -332.7959 med wd30
 
@@ -116,10 +145,24 @@ anova(model3,model2.1,test="Chisq")
 ```{r}
 #Beta
 library(betareg)
-model4 <- betareg(pow.obs.norm ~ ws30 + I(ws30^2) + I(pts_on_unit_circle^3), data=wind_data)
-summary(model4)
-AIC(model4) #-480.2231   med poauc: -484.3731
+model4 <- betareg(pow.obs.norm ~ ws30.norm + I(ws30.norm^2) + I(pts_on_unit_circle^3), data=wind_data)
+model4.1 <- betareg(pow.obs.norm ~ ws30.norm + I(ws30.norm^2), data=wind_data)
 
+AIC(model4.1)
+
+summary(model4)
+AIC(model4) #-480.2231   med poauc: -484.3731  med norm -484.9559
+
+confint(model4)
+
+qqnorm(model4$residuals)
+qqline(model4$residuals)
+
+
+
+pts_on_unit_circle
+#plot(model4)
+#plot(wind_data$pow.obs.norm ~ wind_data$ws30 * wind_data$wd30)
 
 ```
 
@@ -129,13 +172,13 @@ AIC(model4) #-480.2231   med poauc: -484.3731
 
 ```{r}
 library(ggplot2)
-predict(model3, type="response")
+predict(modelny, type="response")
 
 
 
 
 plot(wind_data$ws30, wind_data$pow.obs.norm, pch = 16, xlab = , ylab = "Pow.obs.norm")
-lines(predict(model3, type="response"))
+lines(predict(modelny, type="response"))
 ```
 
 
@@ -167,22 +210,123 @@ lp.lambda1 <- function(lambda,y){
     length(y)/2*log(summary(mod)$sigma^2) - sum(log(abs(1/(y*(1 - y^lambda)))))
     }
 
+plot(seq(0.01,1,0.01), sapply(seq(0.01,1,0.01), lp.lambda1, y=windpower))
+'
 plot(seq(0.01,1,0.01), sapply(seq(0.01,1,0.01), lp.lambda1, y=wind_data$pow.obs.norm))
-
 lp.lambda1(1/1, wind_data$pow.obs.norm)
 (opt.lambda.trans1=optimize(lp.lambda1,c(0,1),y=wind_data$pow.obs.norm))
+'
+lp.lambda1(1/1, windpower)
+(opt.lambda.trans1=optimize(lp.lambda1,c(0,1),y=windpower))
+
+
+```
+## Dette er den sektion, som hjælpelæren hjalp med
+
+```{r}
+
+#Dette gøres for at standardisere plottet
+y=wind_data$pow.obs.norm
+wind_data$pow.obs.norm <- wind_data$pow.obs.norm+abs(min(wind_data$pow.obs.norm))
+wind_data$pow.obs.norm <- wind_data$pow.obs.norm/(max(wind_data$pow.obs.norm)*1.068)
+
+windpower <- wind_data$pow.obs.norm
+
+
+windpower <- trans1(opt.lambda.trans1$minimum,windpower)
+windpower = windpower+abs(min(windpower))
+windpower = windpower/(max(windpower)*1.068)
+
+#Ny model med transformation 1
+modelny <- lm(windpower ~ ws30 + I(ws30^2), data = wind_data)
+#modelny <- lm(trans1(opt.lambda.trans1$minimum,wind_data$pow.obs.norm) ~ ws30 + I(ws30^2), data = wind_data)
+
+summary(modelny)
+
+modelny2 <- lm(trans2(opt.lambda.trans2$maximum,wind_data$pow.obs.norm) ~ ws30 + I(ws30^2),  data=wind_data) #hedder også model6
+#model5=lm(trans1(opt.lambda.trans1$minimum,wind_data$pow.obs.norm) ~ I(wind_data$ws30.norm) + wind_data$ws30i2,  data=wind_data, family = gaussian) virker ikke
+
+
+
+confint(modelny)
+
+#testdata
+ws <- seq(0,28, length=288)
+ws2 <- (ws)^2
+
+df <- data.frame(ws30=ws)
+predmodel5 <- predict(modelny, newdata = df, interval="prediction")
+predmodel5int <- predict(modelny, newdata = df, interval="confidence")
+
+#Plot modellen
+plot(ws, predmodel5[,1], type = 'l', ylim = c(0,1))
+lines(ws, predmodel5[,2], col = 2, lty = 2)
+lines(ws, predmodel5[,3], col = 2, lty = 2)
+points(wind_data$ws30, wind_data$pow.obs.norm, col="blue", cex=0.2, pch=20)
+
+plot(ws, predmodel5[,1], type = 'l', ylim = c(0,1))
+lines(ws, predmodel5[,2], col = 2, lty = 2)
+lines(ws, predmodel5[,3], col = 2, lty = 2)
+points(wind_data$ws30, windpower, col="blue", cex=0.2, pch=20)
+
+
+
+qqnorm(modelny$residuals)
+qqline(modelny$residuals)
+
+qqnorm(modelny2$residuals)
+qqline(modelny2$residuals)
+
+
+predgammamodel <- predict(model3, newdata = df, interval="prediction")
+predgammamodelint <- predict(model3, newdata = df, interval="confidence") #virker ikke
+
+predmodelny2 <- predict(modelny2, newdata = df, interval="prediction")
+predmodelny2int <- predict(modelny2, newdata = df, interval="confidence")
+
+
+
+plot(ws, predmodelny2[,1], type = 'l', ylim = c(0,1))
+lines(ws, predmodelny2[,2], col = 2, lty = 2)
+lines(ws, predmodelny2[,3], col = 2, lty = 2)
+
+plot(ws, predgammamodel[,1], type = 'l')
+lines(ws, predgammamodel[,2], col = 2, lty = 2)
+lines(ws, predgammamodel[,3], col = 2, lty = 2)
+
+
+
+
+'predmodel5[,1]
+matplot(ws,predmodel5, type="l")
+'
+
+
+wind_data <- cbind(wind_data, sinwd30=sin(wind_data$wd30))
+
+wind_data <- cbind(wind_data,ws30i2=(wind_data$ws30-mean(wind_data$ws30))^2)
+
+
 
 ```
 
-```{r}
-model5=glm(trans1(opt.lambda.trans1$minimum,wind_data$pow.obs.norm) ~ ws30+I(wind_data$ws30^2),family=gaussian,  data=wind_data)
-summary(model5)
-AIC(model5) #1583.717 hvad er meningen med, at denne bliver så høj?
-```
 
+## Der plottes lidt foskellige qq-plots
 ```{r}
-qqnorm(model5$residuals)
-qqline(model5$residuals)
+library(MASS)
+library(qualityTools)
+qqPlot(model4$residuals, dist = "gamma", start = list(shape1 = -1, shape2 = -1), log=TRUE)
+qqline(model4$residuals, dist = "gamma")
+
+ qqPlot(model4$residuals, dist = "beta", estimate.params = TRUE, add.line = TRUE, xlim = c(-0.3,0.4))
+
+
+x <- seq(0, 1, length = 500)
+plot(quantile(model3$residuals^2, x), x,xlim=c(-1,10))
+abline(a = 0, b = 1, col = 'red')
+
+class(model3$residuals)
+
 
 ```
 
@@ -205,7 +349,7 @@ lp.lambda2 <- function(lambda,y){
 
 ```
 ```{r}
-model6=glm(trans2(opt.lambda.trans2$maximum,wind_data$pow.obs.norm)~ ws30 , family=gaussian,  data=wind_data)
+model6=lm(trans2(opt.lambda.trans2$maximum,wind_data$pow.obs.norm) ~ ws30 ,  data=wind_data)
 summary(model6)
 AIC(model6) #hvorfor bliver denne så stor??? 860.2163
 ```
@@ -280,6 +424,8 @@ kappa <- sqrt(rowSums(d$theta^2))
 
 movMF(pts_on_unit_circle, 3.6, control = list())
 
+plot
+
 
 pvonmises(pts_on_unit_circle, mu, kappa, from=NULL, tol = 1e-020)
 
@@ -290,7 +436,30 @@ glm(exp(3.6*cos(pts_on_unit_circle-mean(pts_on_unit_circle)))/2*pi*I(3.6), data=
 
 
 ```{r}
-scatter.smooth(x=wind_data$ws30, y=wind_data$pow.obs, main="Pow.obs ~ wind speed") #scatterplot
+scatter.smooth(x=wind_data$ws30, y=wind_data$pow.obs.norm, main="Pow.obs ~ wind speed") #scatterplot
+
+scatter.smooth(y=wind_data$pow.obs.norm, x=wind_data$ws30 +  wind_data$wd30, family = c("gaussian")) #Initial model
+
+scatter.smooth(y=wind_data$pow.obs.norm, x=wind_data$ws30 + wind_data$ws30^2 + wind_data$wd30^3, family = c("gaussian"))
+scatter.smooth(y=wind_data$pow.obs.norm, x=wind_data$ws30 + wind_data$ws30^2 + wind_data$wd30^3, family = c("symmetric"))
+
+scatter.smooth(y=wind_data$pow.obs.norm, x=model2.3)
+
+
+
+#kan ikke bruges
+
+'library("plot3D")
+x <- ws30 <- wind_data$ws30
+y <- pow.obs.norm <- wind_data$pow.obs.norm
+z <- wd30 <- wind_data$wd30
+
+scatter3D(x, y, z, colvar = z, col = NULL, add = FALSE)
+text3D(x, y, z, labels=FALSE, colvar = NULL, add = FALSE)
+points3D(x, y, z, ...)
+lines3D(x, y, z, ...)
+scatter2D(x, y, colvar = NULL, col = NULL, add = FALSE)
+text2D(x, y, labels, colvar = NULL, col = NULL, add = FALSE)'
 ```
 ```{r} 
 library(locfit)
@@ -300,12 +469,15 @@ summary(empirical.mod)
 ```
 
 ```{r}
-plot(model5)
+plot(empirical.mod)
+plot(fittedmodel3)
 points(y=wind_data$pow.obs.norm, x=wind_data$ws30, cex=0.1, pch=20, col="red")
 
 
 var(wind_data$ws30,wind_data$pow.obs.norm)
 fitted <- fitted(empirical.mod)
+
+fittedmodel3 <- fitted(model3)
 
 
 library(MASS)
@@ -321,15 +493,24 @@ summary(fit2)
 
 x     <- data.frame(wind_data$pow.obs.norm, wind_data$ws30)
 model <- glm(pow.obs.norm ~ ws30, data= wind_data)
-plot(wind_data$ws30, wind_data$pow.obs.norm, #xlab="Temperature",ylab="Probability of Response"
-     ) 
-curve(predict(model, add=TRUE, col="red")
-
+plot(wind_data$ws30, wind_data$pow.obs.norm, xlab="Temperature",ylab="Probability of Response")
+curve(predict(model, add=TRUE, col="red"))
 ```
+
+
+
 ```{r}
 library(fitdistrplus)
 descdist(wind_data$pow.obs, boot=1000)
 descdist(wind_data$ws30, boot=1000) 
+descdist(model4$residuals, boot=1000) 
+descdist(model3$residuals, boot=1000)
+descdist(model2.3$residuals, boot=1000)
+descdist(model1$residuals, boot=1000)
+descdist(model5$residuals, boot=1000)
+descdist(modelny2$residuals, boot=1000)
+descdist(modelny$residual, boot=1000)
+
 ```
 ```{r}
 weibull.fit<-fitdist(wind_data$pow.obs, distr="weibull")

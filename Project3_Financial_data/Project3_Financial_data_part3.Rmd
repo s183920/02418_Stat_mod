@@ -1,0 +1,110 @@
+---
+title: 'Project3: Financial data part 3'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages
+
+```{r Packages, include = FALSE}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(magrittr)
+```
+
+
+# Data
+
+## Load
+```{r}
+finance_data <- read.csv("../Data/finance_data.csv", header = T, sep = ";") %>% 
+  # tidyr::separate("time", c("year", "month", "day"), sep = "-") %>% 
+  dplyr::mutate(time = lubridate::ymd(time)) 
+  
+summary(finance_data)
+
+#Looking at the data
+hist(finance_data$SLV, breaks = 50)
+
+```
+
+## Normal mixture models with 2 and 3 components
+Først findes lige estimaterne for delta_1 og lambda_1 og lambda_2. Samt working parameters.
+
+```{r}
+# natural to Working parameters 
+
+#Theta er en vektor med to elementer (mu, sigma)
+norm.mix.pn2pw <- function(m,theta, delta){
+  eta <- log(theta)
+  tau <- log(delta/(1-sum(delta)))
+  return(list(eta=eta, tau=tau))
+}
+
+```
+
+```{r}
+# Now working to nautral 
+
+norm.mix.pw2pn <- function(m, eta, tau){
+  if(m==1){return(exp(eta))}
+  theta <- exp(eta)
+  delta <- exp(tau/(1+sum(exp(tau))))
+  delta <- c(1-sum(delta), delta)
+  
+  return(list(theta=theta, delta=delta))
+}
+```
+
+```{r}
+## negative log likelihood function
+#n_dist = antal componenter
+nll <- function(theta, n_dist, y){
+  if(n_dist==1){
+    return(-sum(dnorm(y, theta[1], theta[2], log=TRUE)))
+  }
+  mu <- theta[1:n_dist]
+  sigma <- theta[(n_dist+1):(2*n_dist)]
+  delta <- theta[(2*n_dist+1): (3*n_dist)]
+  
+  n <- length(y)
+  nll <- 0
+  
+  for(i in 1:n){
+    nll <- nll-log(sum(delta*dnorm(y[i],mu,sigma)))
+  }
+  return(nll)
+}
+
+
+#fitting model med 2 componenter
+
+m <- 2;
+
+
+y <- finance_data$SLV
+m <- 2
+theta <-c(rep(mean(y), m), rep(var(y), m), rep(1/m, m))
+nll(theta, m, y)
+
+(opt2 <- nlminb(theta, nll, n_dist=m,y=y))
+opt2
+
+
+
+
+
+```
+
+
+```{r}
+
+
+
+```
+
