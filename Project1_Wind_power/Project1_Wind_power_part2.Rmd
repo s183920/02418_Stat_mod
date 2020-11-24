@@ -44,16 +44,21 @@ wind_data$pow.obs.norm <- (wind_data$pow.obs)/5000
 
 ## Initial model
 ```{r}
-model1 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), data = wind_data)
-AIC(model1) #-216.3865
+model1 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), data = wind_data, family = Gamma(link = "logit"))
+model2 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + wd30, data = wind_data, family = Gamma(link = "logit"))
+AIC(model2) #-216.3865
 summary(model1)
-
+anova(model1,model2, test = "Chisq")
 qqnorm(model1$residuals)
 qqline(model1$residuals)
 
 
 #Deviance test 
 anova(model1,model2,test="Chisq")
+
+model1$null.deviance
+
+
 
 ```
 
