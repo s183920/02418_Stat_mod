@@ -93,8 +93,17 @@ nll_multivariate<- function(par, data){
   return(-sum)
 }
 
-nlminb(start = c(1,.5), nll_multivariate, lower = c(1e-16,1e-16), upper = c(1,0.999), data = res_matrix(res))
+opt <- nlminb(start = c(1,.5), nll_multivariate, lower = c(1e-16,1e-16), upper = c(1,0.999), data = res_matrix(res))
+opt
+```
 
+
+```{r}
+hess <- numDeriv::hessian(nll_multivariate, opt$par, data = res_matrix(res))
+CI_sigma <- opt$par[1]+c(-1,1)*sqrt(solve(hess[1,1]))*qnorm(0.975)
+cat("The wald confidence interval for sigma^2 is ", CI_sigma)
+CI_rho = opt$par[2]+c(-1,1)*sqrt(solve(hess[2,2]))*qnorm(0.975)
+cat("The wald confidence interval for rho is ", CI_rho)
 ```
 
 
