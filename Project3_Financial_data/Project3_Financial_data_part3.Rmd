@@ -34,7 +34,7 @@ hist(finance_data$SLV, breaks = 50)
 ```
 
 ## Normal mixture models with 2 and 3 components
-Først findes lige estimaterne for delta_1 og lambda_1 og lambda_2. Samt working parameters.
+Først findes estimaterne for delta_1 og lambda_1 og lambda_2. Samt working parameters.
 
 ```{r}
 # natural to Working parameters 
@@ -101,10 +101,19 @@ opt2
 
 ```
 
+## Katrine prøver lige nogle ting herunder
+```{r}
+library(MASS)
+data(galaxies)
+X = finance_data$SLV
+```
 
 ```{r}
+library(mclust, quietly=TRUE)
 
 
+fit = Mclust(X, G=2, model="V")
+summary(fit)
 
 ```
 
