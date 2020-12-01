@@ -48,19 +48,22 @@ wind_data
 
 
 ```{r}
-data_transform <- function(y, lambda){
+data_transform2 <- function(y, lambda){
   2 * log(y^lambda/((1-y)^(1-lambda)))
-  
 }
-wind_data$pow.lambda <- data_transform(wind_data$pow.obs.norm, 0.2)
-wind_data
+data_transform1 <- function(y, lambda){
+  1/lambda*log((y^lambda)/(1-y^lambda))
+}
+wind_data$pow.lambda1 <- data_transform1(wind_data$pow.obs.norm, 0.2)
 
-model = lm(pow.lambda ~ ws30 + I(ws30^2), data = wind_data)
+
+model = lm(pow.lambda1 ~ ws30 + I(ws30^2), data = wind_data)
 summary(model)
-  
+ws = seq(0,25, 1e-3)
+df = data.frame(ws30 = ws, ws30_2 = ws^2)
+plot(wind_data$ws30, wind_data$pow.lambda1)
 
-plot(wind_data$ws30, wind_data$pow.lambda)
-abline(model)
+lines(ws, predict(model, newdata = df, interval = "confidence")[,1], lty = 2)
 
 ```
 
@@ -68,7 +71,7 @@ abline(model)
 
 ```{r}
 res = model$residuals
-
+var(res)
 res_matrix <- function(res){
   n = length(res) - 1
   M = matrix(nrow = n, ncol = 2)
@@ -95,7 +98,9 @@ nll_multivariate<- function(par, data){
   return(-sum)
 }
 
-opt <- nlminb(start = c(1,.5), nll_multivariate, lower = c(1e-16,1e-16), upper = c(1,0.999), data = res_matrix(res))
+opt <- nlminb(start = c(1,.5), nll_multivariate, lower = c(1e-16,1e-16), upper = c(200,0.999), data = res_matrix(res))
+
+
 opt
 ```
 
@@ -130,7 +135,7 @@ I4 <- n*(1+rho_MLE^2)/(1-rho_MLE^2)^2
 cat("\nAlgebraic matrix values: ", matrix(c(I1, I2, I2, I4), nrow = 2, byrow = T))
 ```
 
-
+## CHANGE VALUES!!!
 $$
 \begin{align}
 I_{num}\left(\hat{\sigma^2}, \hat{\rho}\right) &= \begin{bmatrix} 374.9 &&  -111.9 \\ -111.9 && 384.0 \end{bmatrix} \\
@@ -140,7 +145,7 @@ $$
 Wow, numerical methods results in nearly the same as the algebraic.
 # Contour Plots
 ```{r}
-sigma = seq(0.72,1.1, by = 0.01)
+sigma = seq(10,13, by = 0.1)
 p = seq(0.15,0.45, by = 0.01)
 
 data = res_matrix(res)
@@ -185,7 +190,7 @@ nll_multivariate2<- function(sigma, p, data){
 
 
 Profile_rho <- function(rho){
-  sigma = nlminb(start = c(1), nll_multivariate2, lower = c(1e-16), upper = c(1), p = rho, data = res_matrix(res))$par
+  sigma = nlminb(start = c(1), nll_multivariate2, lower = c(1e-16), upper = c(20), p = rho, data = res_matrix(res))$par
   
   nll_multivariate2(sigma, rho, data = res_matrix(res))
 
@@ -200,7 +205,7 @@ h0 = -Profile_rho(0)
 
 Q = -2*(h0-objective)
 p = pchisq(Q, df = 1, lower.tail = F)
-cat("P-value for likelihood ratio test:", p)
+cat("P-value for likelihood ratio test:", p, "\n")
 se = sqrt(solve(hess[2,2]))
 
 z = (objective-h0)/se
@@ -227,14 +232,12 @@ lines(rho,-1/2*curvature * (rho - opt_rho$par)^2, 'l', lty = 2)
 
 ### Z transform stuff profile likelihood ... idunno ... 
 ```{r}
+
+
 Z_transform <- function(p){
   1/2 * log((1+p)/(1-p))
 }
 
-rho
-
-Z_transform(rho)
-hess <- numDeriv::hessian(nll_multivariate, opt$par, data = res_matrix(res))
 
 curvature = solve(hess)[2,2]
 SE = sqrt(curvature)
@@ -243,26 +246,58 @@ curvature_Z = 1/(SE_Z^2)
 plot(Z_transform(rho), -L-max(-L), 'l')
 # lines(rho, -L-max(-L), lty = 2)
 lines(Z_transform(rho), -1/2*curvature_Z * (Z_transform(rho) - Z_transform(opt_rho$par))^2, 'l', lty = 2)
+print("Vaaary niccce")
+
+```
+```{r}
+nll_multivariate_transform<- function(par_T, data){
+  sigma = exp(par_T[1])
+  p = (exp(2*par_T[2])-1)/(exp(2*par_T[2])+1)
+  Sigma = matrix(data = c(sigma, p*sigma, p*sigma, sigma), nrow = 2, ncol = 2, byrow = T)
+  n = length(res_matrix(res))/2
+  sum = 0
+  
+  for (i in 1:n){
+      x <- data[i,]
+      sum = sum - 1/2*(log(det(Sigma)) + t(x) %*% solve(Sigma) %*% x + 2*log(2*pi))
+  
+  }
+  return(-sum)
+}
+
+
+
+opt_trans = nlminb(start = c(0.5, 0.5), nll_multivariate_transform, data = res_matrix(res))
+c(log(opt$par[1]), Z_transform(opt$par[2]))
+
+hess_Z <- numDeriv::hessian(nll_multivariate_transform, opt_trans$par, data = res_matrix(res))
+
+1/solve(hess_Z)[2,2]
+
+sigma_MLE <- log(opt$par[1])
+rho_MLE <- Z_transform(opt$par[2])
+n <- length(res)
+
+I1 <- n/(sigma_MLE^2)
+I2 <- -n*rho_MLE/(sigma_MLE*(1-rho_MLE^2))
+I4 <- n*(1+rho_MLE^2)/(1-rho_MLE^2)^2
+
+cat("\nAlgebraic matrix values: ", matrix(c(I1, I2, I2, I4), nrow = 2, byrow = T))
+
+H = matrix(c(I1, I2, I2, I4), nrow = 2, byrow = T)
 
 
 ```
-
 
 
 
 ```{r}
+df2 = cbind(wind_data %>% pull(ws30),(wind_data %>% pull(ws30))^2)
+ARreg = arima(wind_data %>% pull(pow.lambda1), order = c(1,0,0), xreg = df2 )
+summary(model)
+ARreg
 
-acf(res)
-
-nll_ar1 <-function(par){
-  theta <- par[1]
-  phi <- par[2]
-  sigma <- par[3]
-  x1 <- res[1]
-  L1 = (2*pi*sigma)^(-1/2) * (1-phi^2)^(1/2) * exp(-(1-phi^2)/(2*sigma) *(x1 - theta/(1-phi))^2  )
-  -L1
-}
-
-nlminb(start = c(0,.5,1), nll_ar1, lower = c(-Inf, -0.999, 0), upper = c(Inf, 0.999, Inf))
 ```
+
+
 
