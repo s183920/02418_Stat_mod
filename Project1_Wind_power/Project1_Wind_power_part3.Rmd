@@ -57,7 +57,7 @@ wind_data
 
 model = lm(pow.lambda ~ ws30 + I(ws30^2), data = wind_data)
 summary(model)
-
+  
 
 plot(wind_data$ws30, wind_data$pow.lambda)
 abline(model)
@@ -138,3 +138,139 @@ I_{alg}\left(\hat{\sigma^2}, \hat{\rho}\right) &= \begin{bmatrix} 376.2 && -112.
 \end{align}
 $$
 Wow, numerical methods results in nearly the same as the algebraic.
+# Contour Plots
+```{r}
+sigma = seq(0.72,1.1, by = 0.01)
+p = seq(0.15,0.45, by = 0.01)
+
+data = res_matrix(res)
+print(length(sigma))
+Z = matrix(data = NA, nrow = length(sigma), ncol = length(p))
+for (i in 1:length(sigma)){
+  print(i)
+  for (j in 1:length(p)){
+    
+    Z[i,j] = nll_multivariate(c(sigma[i], p[j]), data)
+
+  }
+  
+}
+A = -Z -(max(-Z))
+confint = c(.99, .975, .95, .9, .8, .5)
+C = exp(-1/2*qchisq(confint, df = 1))
+contour(x = sigma, y = p, exp(A), level=C, xlab = expression(sigma^2), ylab = expression(rho), main = "Countour Plot of confidence regions", labels = confint)
+```
+
+
+
+
+
+
+# P values for rho. Wald and Likelihood test
+## Likelihood ratio test
+```{r}
+nll_multivariate2<- function(sigma, p, data){
+  Sigma = matrix(data = c(sigma, p*sigma, p*sigma, sigma), nrow = 2, ncol = 2, byrow = T)
+  n = length(res_matrix(res))/2
+  sum = 0
+  
+  for (i in 1:n){
+      x <- data[i,]
+      sum = sum - 1/2*(log(det(Sigma)) + t(x) %*% solve(Sigma) %*% x + 2*log(2*pi))
+  
+  }
+  return(-sum)
+}
+
+
+
+Profile_rho <- function(rho){
+  sigma = nlminb(start = c(1), nll_multivariate2, lower = c(1e-16), upper = c(1), p = rho, data = res_matrix(res))$par
+  
+  nll_multivariate2(sigma, rho, data = res_matrix(res))
+
+
+}
+
+
+opt_rho = nlminb(start = c(0.5), Profile_rho, lower = c(1e-16), upper = c(0.999))
+
+objective = -opt_rho$objective
+h0 = -Profile_rho(0)
+
+Q = -2*(h0-objective)
+p = pchisq(Q, df = 1, lower.tail = F)
+cat("P-value for likelihood ratio test:", p)
+se = sqrt(solve(hess[2,2]))
+
+z = (objective-h0)/se
+p1 = 1-pnorm(z)
+
+cat("P-values for Wald test:", p1)
+
+
+```
+
+## Profile likelihood and quadratic aprroximation
+```{r}
+rho <- seq(0,0.5, by = 0.01)
+L = sapply(rho,Profile_rho)
+plot(rho, -L-max(-L), 'l', ylab = "Normalised Log Likelihood", xlab = expression(rho))
+C = -1/2*qchisq(1-0.05, df = 1)
+abline(h = C)
+curvature = 1/solve(hess)[2,2]
+lines(rho,-1/2*curvature * (rho - opt_rho$par)^2, 'l', lty = 2)
+```
+
+
+
+
+### Z transform stuff profile likelihood ... idunno ... 
+```{r}
+nll_multivariate3<- function(l_sigma, z, data){
+  Sigma = matrix(data = c(l_sigma, z*l_sigma, z*l_sigma, l_sigma), nrow = 2, ncol = 2, byrow = T)
+  n = length(res_matrix(res))/2
+  sum = 0
+  
+  for (i in 1:n){
+      x <- data[i,]
+      sum = sum - 1/2*(log(det(Sigma)) + t(x) %*% solve(Sigma) %*% x + 2*log(2*pi))
+  
+  }
+  return(-sum)
+}
+
+
+
+Profile_z <- function(z){
+  sigma = nlminb(start = c(1), nll_multivariate3, lower = c(1e-16), upper = c(1), z = z, data = res_matrix(res))$par
+  sigma = log(sigma)
+  z = 1/2 * log((1+rho)/(1-rho))
+  nll_multivariate2(sigma, z, data = res_matrix(res))
+}
+
+rho <- seq(0.01, 0.5, by = 0.01)
+z <- 1/2 * log((1+rho)/(1-rho))
+L = sapply(z,Profile_z)
+plot(z, -L-max(-L), 'l', ylab = "Normalised Log Likelihood", xlab = expression(rho))
+```
+
+
+
+
+```{r}
+
+acf(res)
+
+nll_ar1 <-function(par){
+  theta <- par[1]
+  phi <- par[2]
+  sigma <- par[3]
+  x1 <- res[1]
+  L1 = (2*pi*sigma)^(-1/2) * (1-phi^2)^(1/2) * exp(-(1-phi^2)/(2*sigma) *(x1 - theta/(1-phi))^2  )
+  -L1
+}
+
+nlminb(start = c(0,.5,1), nll_ar1, lower = c(-Inf, -0.999, 0), upper = c(Inf, 0.999, Inf))
+```
+
