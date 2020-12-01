@@ -196,32 +196,24 @@ lines(rho,-1/2*curvature * (rho - opt_rho$par)^2, 'l', lty = 2)
 
 ### Z transform stuff profile likelihood ... idunno ... 
 ```{r}
-nll_multivariate3<- function(l_sigma, z, data){
-  Sigma = matrix(data = c(l_sigma, z*l_sigma, z*l_sigma, l_sigma), nrow = 2, ncol = 2, byrow = T)
-  n = length(res_matrix(res))/2
-  sum = 0
-  
-  for (i in 1:n){
-      x <- data[i,]
-      sum = sum - 1/2*(log(det(Sigma)) + t(x) %*% solve(Sigma) %*% x + 2*log(2*pi))
-  
-  }
-  return(-sum)
+Z_transform <- function(p){
+  1/2 * log((1+p)/(1-p))
 }
 
+rho
+
+Z_transform(rho)
+hess <- numDeriv::hessian(nll_multivariate, opt$par, data = res_matrix(res))
+
+curvature = solve(hess)[2,2]
+SE = sqrt(curvature)
+SE_Z <- SE * numDeriv::grad(Z_transform, opt_rho$par)
+curvature_Z = 1/(SE_Z^2)
+plot(Z_transform(rho), -L-max(-L), 'l')
+# lines(rho, -L-max(-L), lty = 2)
+lines(Z_transform(rho), -1/2*curvature_Z * (Z_transform(rho) - Z_transform(opt_rho$par))^2, 'l', lty = 2)
 
 
-Profile_z <- function(z){
-  sigma = nlminb(start = c(1), nll_multivariate3, lower = c(1e-16), upper = c(1), z = z, data = res_matrix(res))$par
-  sigma = log(sigma)
-  z = 1/2 * log((1+rho)/(1-rho))
-  nll_multivariate2(sigma, z, data = res_matrix(res))
-}
-
-rho <- seq(0.01, 0.5, by = 0.01)
-z <- 1/2 * log((1+rho)/(1-rho))
-L = sapply(z,Profile_z)
-plot(z, -L-max(-L), 'l', ylab = "Normalised Log Likelihood", xlab = expression(rho))
 ```
 
 
