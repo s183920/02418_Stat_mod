@@ -203,6 +203,9 @@ Optimer lambda således at residualerne fra modellen best fitter en normalfordel
 trans1 <- function(lambda,y){
     y.l <- 1/lambda*log((y^lambda)/(1-y^lambda))
     return(y.l)}
+trans2 <- function(y, lambda){
+  1/lambda*log((y^lambda)/(1-y^lambda))
+}
 
 ## profile likelihood for lambda
 lp.lambda1 <- function(lambda,y){
@@ -210,7 +213,7 @@ lp.lambda1 <- function(lambda,y){
     length(y)/2*log(summary(mod)$sigma^2) - sum(log(abs(1/(y*(1 - y^lambda)))))
     }
 
-plot(seq(0.01,1,0.01), sapply(seq(0.01,1,0.01), lp.lambda1, y=windpower))
+plot(seq(0.01,1,0.01), sapply(seq(0.01,1,0.01), lp.lambda1, y=wind_data$pow.obs.norm))
 '
 plot(seq(0.01,1,0.01), sapply(seq(0.01,1,0.01), lp.lambda1, y=wind_data$pow.obs.norm))
 lp.lambda1(1/1, wind_data$pow.obs.norm)
@@ -233,7 +236,7 @@ wind_data$pow.obs.norm <- wind_data$pow.obs.norm/(max(wind_data$pow.obs.norm)*1.
 windpower <- wind_data$pow.obs.norm
 
 
-windpower <- trans1(opt.lambda.trans1$minimum,windpower)
+windpower <- trans1(0.2,windpower)
 windpower = windpower+abs(min(windpower))
 windpower = windpower/(max(windpower)*1.068)
 
@@ -243,7 +246,7 @@ modelny <- lm(windpower ~ ws30 + I(ws30^2), data = wind_data)
 
 summary(modelny)
 
-modelny2 <- lm(trans2(opt.lambda.trans2$maximum,wind_data$pow.obs.norm) ~ ws30 + I(ws30^2),  data=wind_data) #hedder også model6
+modelny2 <- lm(trans1(0.2,wind_data$pow.obs.norm) ~ ws30 + I(ws30^2),  data=wind_data) #hedder også model6
 #model5=lm(trans1(opt.lambda.trans1$minimum,wind_data$pow.obs.norm) ~ I(wind_data$ws30.norm) + wind_data$ws30i2,  data=wind_data, family = gaussian) virker ikke
 
 
@@ -306,7 +309,8 @@ wind_data <- cbind(wind_data, sinwd30=sin(wind_data$wd30))
 
 wind_data <- cbind(wind_data,ws30i2=(wind_data$ws30-mean(wind_data$ws30))^2)
 
-
+plot(wind_data$ws30, trans1(0.2, wind_data$pow.obs.norm))
+abline(modelny2)
 
 ```
 
