@@ -64,6 +64,8 @@ abline(model)
 
 ```
 
+# Fit parameters
+
 ```{r}
 res = model$residuals
 
@@ -97,7 +99,7 @@ opt <- nlminb(start = c(1,.5), nll_multivariate, lower = c(1e-16,1e-16), upper =
 opt
 ```
 
-
+### 
 ```{r}
 hess <- numDeriv::hessian(nll_multivariate, opt$par, data = res_matrix(res))
 CI_sigma <- opt$par[1]+c(-1,1)*sqrt(solve(hess[1,1]))*qnorm(0.975)
@@ -106,3 +108,33 @@ CI_rho = opt$par[2]+c(-1,1)*sqrt(solve(hess[2,2]))*qnorm(0.975)
 cat("The wald confidence interval for rho is ", CI_rho)
 ```
 
+
+# Compare fisher information
+
+Algebraic fsiher information from a bivariate normal
+$$
+I\left(\sigma^{2}, \rho\right)=\left(\begin{array}{cc}\frac{n}{\sigma^{4}} & -\frac{n \rho}{\sigma^{2}\left(1-\rho^{2}\right)} \\ -\frac{n \rho}{\sigma^{2}\left(1-\rho^{2}\right)} & \frac{n\left(1+\rho^{2}\right)}{\left(1-\rho^{2}\right)^{2}}\end{array}\right)
+$$
+
+
+```{r}
+cat("Numerical matrix values: ", hess)
+sigma_MLE <- opt$par[1]
+rho_MLE <- opt$par[2]
+n <- length(res)
+
+I1 <- n/sigma_MLE^2
+I2 <- -n*rho_MLE/(sigma_MLE*(1-rho_MLE^2))
+I4 <- n*(1+rho_MLE^2)/(1-rho_MLE^2)^2
+
+cat("\nAlgebraic matrix values: ", matrix(c(I1, I2, I2, I4), nrow = 2, byrow = T))
+```
+
+
+$$
+\begin{align}
+I_{num}\left(\hat{\sigma^2}, \hat{\rho}\right) &= \begin{bmatrix} 374.9 &&  -111.9 \\ -111.9 && 384.0 \end{bmatrix} \\
+I_{alg}\left(\hat{\sigma^2}, \hat{\rho}\right) &= \begin{bmatrix} 376.2 && -112.3 \\ -112.3 && 385.3 \end{bmatrix}
+\end{align}
+$$
+Wow, numerical methods results in nearly the same as the algebraic.
