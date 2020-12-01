@@ -29,7 +29,7 @@ library(MASS)
 wind_data <- read.delim("../Data/tuno.txt", header = T, sep = " ")
 summary(wind_data)
 wind_data$pow.obs.norm <- (wind_data$pow.obs)/5000
-wind_data$ws30.norm <- (wind_data$ws30)/max(ws30)
+wind_data$ws30.norm <- (wind_data$ws30)/max(wind_data$ws30)
 
 wind_data
 
@@ -120,6 +120,7 @@ movMF(pts_on_unit_circle, 3.6, control = list())
 #series expnsion
 model2.1 <- glm(pow.obs.norm ~ ws30 + I(ws30^2), data=wind_data)
 summary(model2.1)
+-0.1857 - 0.039923*qnorm(0.975)
 model2.2 <- glm(pow.obs.norm ~ ws30 + I(pts_on_unit_circle), data=wind_data)
 summary(model2.2)
 model2.3 <- glm(pow.obs.norm ~ ws30 + I(ws30^2) + I(wd30^3), family=Gamma, data=wind_data) #Denne benyttes!!! -301.6694
