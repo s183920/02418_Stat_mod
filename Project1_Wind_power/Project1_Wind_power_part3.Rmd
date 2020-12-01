@@ -309,7 +309,7 @@ cat("It is seen that the found value of phi almost matches the found autocorrela
 
 ```{r}
 df2 = cbind(wind_data %>% pull(ws30),(wind_data %>% pull(ws30))^2)
-ARreg = arima(wind_data %>% pull(pow.lambda1), order = c(1,0,0), xreg = df2 )
+ARreg = arima(wind_data %>% pull(pow.lambda1), order = c(1,0,1), xreg = df2 )
 summary(model)
 ARreg
 
