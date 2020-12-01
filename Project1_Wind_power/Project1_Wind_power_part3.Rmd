@@ -284,9 +284,25 @@ I4 <- n*(1+rho_MLE^2)/(1-rho_MLE^2)^2
 
 cat("\nAlgebraic matrix values: ", matrix(c(I1, I2, I2, I4), nrow = 2, byrow = T))
 
-H = matrix(c(I1, I2, I2, I4), nrow = 2, byrow = T)
 
+nll_ar1 <-function(par, with_L1 = T){
+  data <- res_matrix(res)
+  theta <- par[1]
+  phi <- par[2]
+  sigma <- par[3]
+  x1 <- res[1]
+  mu <- theta+phi*data[,1]
+  L1 = (2*pi*sigma)^(-1/2) * (1-phi^2)^(1/2) * exp(-(1-phi^2)/(2*sigma) *(x1 - theta/(1-phi))^2  )
+  l2 = sum(dnorm(data[,2], sd = sqrt(sigma), mean = mu, log = T))
+  -log(L1)*with_L1-l2
+}
+# with L1
+nlminb(start = c(0,.5,1), nll_ar1, lower = c(-Inf, -0.999, 0), upper = c(Inf, 0.999, Inf), with_L1 = T)
 
+# withoyt L1
+nlminb(start = c(0,.5,1), nll_ar1, lower = c(-Inf, -0.999, 0), upper = c(Inf, 0.999, Inf), with_L1 = F)
+
+cat("It is seen that the found value of phi almost matches the found autocorrelation from previous of ", rho_MLE)
 ```
 
 
