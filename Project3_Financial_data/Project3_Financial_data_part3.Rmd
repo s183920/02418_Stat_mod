@@ -98,11 +98,11 @@ sigma <-sd(finance_data$SLV)*c(1/2,3/2)
 delta <- c(1/2)
 
 ## Working parameters
-wpars <- norm_mix_pn2pw(m, mu, sigma, delta)
-theta <- c(wpars$mu, wpars$t_sigma, wpars$t_delta)
+wpars2 <- norm_mix_pn2pw(m, mu, sigma, delta)
+theta2 <- c(wpars2$mu, wpars2$t_sigma, wpars2$t_delta)
 
 ## MLE
-opt2 <- nlminb(theta, nll, m = m, x = finance_data$SLV)
+opt2 <- nlminb(theta2, nll, m = m, x = finance_data$SLV)
 
 ## Natural parameters
 npars2 <- norm_mix_pw2pn(m, opt2$par[1:m], opt2$par[(m+1):(2*m)], opt2$par[(2*m+1):(3*m-1)])
@@ -217,6 +217,9 @@ The mean value is centered around zero. An since, sigma is small, little varianc
 ## c) Make a profile likelihood plot of one of the variance parameters in the two component model.  
 
 ```{r}
+
+#fra Tobias 
+
 ## Profile likelihood for sigma 1 given working parameters
 lp.sigma1 <- function(sigma1, m, x, pars0){
   ## Fun for inner optim
@@ -227,79 +230,169 @@ lp.sigma1 <- function(sigma1, m, x, pars0){
   nlminb(pars0, fun.tmp, sigma1 = sigma1, m = m, x = x)$objective    
 }
 
-## Plot profile likelihood
-sigma1 <- seq(max(opt3$par[2]-3*se[2],-1),
-           min(opt3$par[2]+3*se[2],1),
-           length=200)
+## Estimation with 2 distributions
+m <- 2; 
 
-lp <- sapply(sigma1,lp.sigma1,x=x[-1],x0)
+## Initial values
+mu <- mean(finance_data$SLV)*c(1/2,3/2)
+sigma <-sd(finance_data$SLV)*c(1/2,3/2)
+delta <- c(0.1)
 
-plot(sigma1,exp(lp-max(lp)),type="l")
-lines(range(sigma1),
-      exp(-c(1,1) * qchisq(0.95,df=1)/2),
-          col=2,lty=2)
-```
+## Working parameters
+wpars <- norm_mix_pn2pw(m, mu, sigma, delta)
+theta0 <- c(wpars$mu, wpars$t_sigma, wpars$t_delta)
+theta <- c(theta0[1:m],theta0[(m+2):(3*m-1)])
 
-## Profile likelihood for phi
-llp.phi <- function(sigma1, m, x, pars0){
-    n <- length(x) - 1
-    -n/2 * log(sum((x[-1]-phi*x[-(n+1)])^2))
-}
+sigma1 <- seq(0.01, 0.1, length=100)
 
-## Plot profile likelihood
- <- seq(max(opt$par[2]-3*se[2],-1),
-           min(opt$par[2]+3*se[2],1),
-           length=200)
-
-llp <- sapply(phi,llp.phi,x=x[-1],x0)
-
-plot(phi,exp(llp-max(llp)),type="l")
-lines(range(phi),
-      exp(-c(1,1) * qchisq(0.95,df=1)/2),
-          col=2,lty=2)
-
-
-# fra lecture 11
-##################################################
-## Profile likelihood for lambda 1
-PL.lambda1 <- function(lambda1,m,y,lambda0,gamma0){
-    ## Fun for inner optim
-    fun.tmp <- function(pars,lambda1,y,m){
-        parvect <- c(log(lambda1),pars)
-        pois.HMM.mllk(parvect,y,m)
-    }
-    ## Initialize
-    lambda0 <- c(lambda1,lambda0)
-    parvect0 <- pois.HMM.pn2pw(m, lambda0, gamma0)
-    parvect0 <- parvect0[-1]
-    np <- length(parvect0)
-    lower    <- rep(-10,np)
-    upper    <- c(rep(max(y),m-1),rep(10,np+1-m))
-    ## optimize to find profile likelihood
-    nlminb(parvect0,fun.tmp, lambda1=lambda1,
-           y=y, m=m, lower=lower,
-           upper=upper)$objective    
-}
-
-## Initial values for estimation
-lambda0 <- quantile(y,probs=c(1/3,2/3))
-PL.lambda1(lambda1=29,m=m,y=y,lambda0,gamma0)
-
-## Which lamdas should we look at
-lambda1 <- seq(min(y),max(y),length=100)
-
-## The profile liklielihood 
-llp.lambda1 <- sapply(lambda1,PL.lambda1,m=m,y=y,
-       lambda0=lambda0,gamma0=gamma0)
+## profile likeihood
+pnll <- sapply(sigma1, lp.sigma1, m = m, x = finance_data$SLV, pars0 = theta)
 
 ## Plot the profile likelihood
-par(mfrow=c(1,1))
-plot(lambda1,exp(-(llp.lambda1-fit3$mllk)),
-     type="l")
-lines(range(lambda1),
+plot(sigma1,exp(-(pnll-min(pnll))),type="l", ylim=c(0,1))
+lines(range(sigma1),
       c(1,1)*exp(-qchisq(0.95,df=1)/2),col=2,lty=2,lwd=2)
-rug(fit3$lambda,col=3,lwd=2)
+rug(npars2$sigma,col=2,lwd=2)
 
+
+
+
+
+
+```
+
+
+
+## d) Reparametricering 
+```{r}
+
+## Repara Negative log likelihood
+
+## Profile likelihood for sigma 1 given working parameters
+re.lp.sigma1 <- function(sigma1, m, x, pars0){
+  ## Fun for inner optim
+  fun.tmp <- function(theta, sigma1, m, x){
+    pars <- c(theta[1:m], log(sigma1), theta[-(1:m)])
+    nll(pars, m, x)
+  }
+  nlminb(pars0, fun.tmp, sigma1 = sigma1, m = m, x = x)$objective    
+}
+
+## Estimation with 2 distributions
+m <- 2; 
+
+## Initial values
+mu <- mean(finance_data$SLV)*c(1/2,3/2)
+sigma <-sd(finance_data$SLV)*c(1/2,3/2)
+delta <- c(0.1)
+
+## Working parameters
+wpars <- norm_mix_pn2pw(m, mu, sigma, delta)
+theta0 <- c(wpars$mu, wpars$t_sigma, wpars$t_delta)
+theta <- c(theta0[1:m],theta0[(m+2):(3*m-1)])
+
+sigma1 <- seq(0.01, 0.1, length=100)
+
+## profile likeihood
+pnll <- sapply(sigma1, lp.sigma1, m = m, x = finance_data$SLV, pars0 = theta)
+
+## Plot the profile likelihood
+plot(sigma1,exp(-(pnll-min(pnll))),type="l", ylim=c(0,1))
+lines(range(sigma1),
+      c(1,1)*exp(-qchisq(0.95,df=1)/2),col=2,lty=2,lwd=2)
+rug(npars2$sigma,col=2,lwd=2)
+
+
+
+
+
+
+
+
+## Reprametrizing mix-model 
+
+## Natural to working parameters
+re.norm.mix.pn2pw <- function(m, mu, sigma, delta) {
+  if(sum(delta) >= 1) {
+    print("sum(delta) should be < 1")
+    return()
+  }
+  t.sigma <- log(c(sigma[1],sigma[-1]-sigma[-m])) #sigma 2 er nu blevet til differensen mellem sigma1 og sigma2
+  t.delta <- log(delta/(1 - sum(delta)))
+  return(list(mu = mu, t.sigma = t.sigma, t.delta = t.delta))
+}
+
+## Working to natural parameters
+re.norm.mix.pw2pn <- function(m, mu, t.sigma, t.delta){
+  if(m == 1){
+    return(exp(t.sigma))
+  }
+  sigma <- cumsum(exp(t.sigma)) #lægger sigma1 tilbage til sigma2, så det ikke længere er en differens
+  delta <- exp(t.delta)/(1 + sum(exp(t.delta)))
+  delta <- c(1 - sum(delta),delta)
+  return(list(mu = mu, sigma = sigma, delta = delta))
+}
+
+## Negative log likelihood
+re.nll <- function(theta, m, x){
+  if(m == 1) {
+    return(-sum(pnorm(x, theta[1], exp(theta[2]), log=TRUE))) 
+  }
+  mu <- theta[1:m]
+  t.sigma <- theta[(m+1):(2*m)]
+  t.delta <- theta[(2*m+1):(3*m-1)]
+  n.pars <- re.norm.mix.pw2pn(m, mu, t.sigma, t.delta)
+  n <- length(x)
+  nll <- 0
+  for(i in 1:n) {
+    nll <- nll - log(sum(n.pars$delta * dnorm(x[i], mu, n.pars$sigma)))
+  }
+  return(nll)
+}
+
+#########################################################################################################################
+
+## Profile likelihood for sigma 1 given working parameters
+re.lp.sigma1 <- function(sigma1, m, x, pars0){
+  ## Fun for inner optim
+  fun.tmp <- function(theta, sigma1, m, x){
+    pars <- c(theta[1:m], log(sigma1), theta[-(1:m)])
+    re.nll(pars, m, x)
+  }
+  nlminb(pars0, fun.tmp, sigma1 = sigma1, m = m, x = x)$objective    
+}
+
+m <- 2; 
+
+## Initial values
+mu <- mean(finance_data$SLV)*c(1/2,3/2)
+sigma <-sd(finance_data$SLV)*c(1/2,3/2)
+delta <- c(0.1)
+
+## Working parameters
+wpars <- re.norm.mix.pn2pw(m, mu, sigma, delta)
+theta0 <- c(wpars$mu, wpars$t.sigma, wpars$t.delta)
+theta <- c(theta0[1:m],theta0[(m+2):(3*m-1)])
+
+sigma1 <- seq(0.01, 0.05, length=100)
+
+## profile likeihood
+pnll <- sapply(sigma1, re.lp.sigma1, m = m, x = finance_data$SLV, pars0 = theta)
+
+## Plot the profile likelihood
+plot(sigma1,exp(-(pnll-min(pnll))),type="l", ylim=c(0,1))
+lines(range(sigma1),
+      c(1,1)*exp(-qchisq(0.95,df=1)/2),col=2,lty=2,lwd=2)
+rug(npars2$sigma[1],col=2,lwd=2)
+
+
+
+
+
+
+```
+
+   
 
 ## Markov Chain
 ```{r}
