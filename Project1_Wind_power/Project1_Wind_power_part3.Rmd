@@ -126,13 +126,14 @@ $$
 cat("Numerical matrix values: ", hess)
 sigma_MLE <- opt$par[1]
 rho_MLE <- opt$par[2]
-n <- length(res)
+n <- length(res)-1
 
 I1 <- n/sigma_MLE^2
 I2 <- -n*rho_MLE/(sigma_MLE*(1-rho_MLE^2))
 I4 <- n*(1+rho_MLE^2)/(1-rho_MLE^2)^2
 
 cat("\nAlgebraic matrix values: ", matrix(c(I1, I2, I2, I4), nrow = 2, byrow = T))
+
 ```
 
 ## CHANGE VALUES!!!
@@ -152,7 +153,7 @@ data = res_matrix(res)
 print(length(sigma))
 Z = matrix(data = NA, nrow = length(sigma), ncol = length(p))
 for (i in 1:length(sigma)){
-  print(i)
+  # print(i)
   for (j in 1:length(p)){
     
     Z[i,j] = nll_multivariate(c(sigma[i], p[j]), data)
@@ -271,20 +272,25 @@ opt_trans = nlminb(start = c(0.5, 0.5), nll_multivariate_transform, data = res_m
 c(log(opt$par[1]), Z_transform(opt$par[2]))
 
 hess_Z <- numDeriv::hessian(nll_multivariate_transform, opt_trans$par, data = res_matrix(res))
+cat("The numcerical information matrix with z transform", hess_Z)
 
 1/solve(hess_Z)[2,2]
 
-sigma_MLE <- log(opt$par[1])
-rho_MLE <- Z_transform(opt$par[2])
-n <- length(res)
+sigma_MLE <- opt$par[1]
+rho_MLE <- opt$par[2]
+n <- length(res)-1
 
-I1 <- n/(sigma_MLE^2)
-I2 <- -n*rho_MLE/(sigma_MLE*(1-rho_MLE^2))
-I4 <- n*(1+rho_MLE^2)/(1-rho_MLE^2)^2
+I1 <- n
+I2 <- -n*rho_MLE
+I4 <- n*(1+rho_MLE^2)
 
 cat("\nAlgebraic matrix values: ", matrix(c(I1, I2, I2, I4), nrow = 2, byrow = T))
 
+```
 
+# AR(1) models
+
+```{r}
 nll_ar1 <-function(par, with_L1 = T){
   data <- res_matrix(res)
   theta <- par[1]
