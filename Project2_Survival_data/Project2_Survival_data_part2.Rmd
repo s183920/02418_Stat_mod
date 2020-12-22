@@ -148,7 +148,7 @@ MLE_b1 <- optimize(profile_b1, c(-5,5), data = log_data, maximum = T)$maximum
 Q <- function(theta){
   (profile_b1(MLE_b1, log_data)-profile_b1(theta, log_data))
 }
-CI <- seq(-5, 5, 0.1) 
+CI <- seq(-5, 5, 0.001) 
 vals <- sapply(CI,Q)
 plot(CI, -vals/max(vals) , "l", xlab = expression(beta[1]))
 abline(-1/2*qchisq(0.95, 1)/max(vals), 0)
@@ -179,7 +179,7 @@ se <- sqrt(solve(hess)[2,2])
 CI_b1 <- opt$par[2]+c(-1,1)*qnorm(0.975)*se
 cat("The confidence interval for the treatment parameter with the wald test is: ", CI_b1)
 
-cat("\nThe p-value with the wald test is: ", pnorm(MLE_b1/se))
+cat("\nThe p-value with the wald test is: ", 2*pnorm(MLE_b1/se))
 ```
 
 
@@ -256,9 +256,34 @@ z <- score(0)/sqrt(info(0))
 cat("The test statistic for H0: theta = 0 is ", z, ", which yields a p-vlaue of ", 2*pnorm(z))
 cat("\nThe test statistic for H0: theta = 0 is ", z, ", which yields a p-vlaue of ", 1-pchisq(z^2, df = 1))
 
+
+# Z <- function(theta){
+#   (score(theta)/sqrt(info(theta)))
+# }
+# CI <- seq(-5, 5, 0.1)
+# vals <- sapply(CI,Z)
+# # 'plot(CI, -vals/max(vals) , "l", xlab = expression(beta[1]))
+# # abline(-1/2*qchisq(0.95, 1)/max(vals), 0)'
+# 
+# # exp(-profile_b1(MLE_b1, log_data))/exp(-1/2*qchisq(0.95, 1))
+# 
+# # CI <- CI[vals < 1/2*qchisq(0.95, 1)]
+# CI <- CI[abs(vals) < qnorm(0.95)]
+# cat("Confidence interval via the score test: ", min(CI), max(CI))
+
 ``` 
 
 As seen above the p-value leans towards a rejection of the null hypothesis $\beta_1 = 0$ on a 6.5 % significance level and the score test there shows that AZT and $\beta_1$ has an effect. This does however not hold on the standard 5 % significance level, and the score test can therefore not reject the null hypothesis of $\beta_1 = 0$
+
+
+```{r}
+p_vals = c(8.48e-3, 9.61e-3, 6.48e-2)
+p.adjust(p_vals, "BH")
+# p.adjust.methods
+
+p_vals*c(3, 3/2, 1)
+
+```
 
 
 # 1 Analysis of survival time data
